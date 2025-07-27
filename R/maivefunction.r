@@ -33,7 +33,6 @@
 #'
 #' @export
 maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
-
   # Manual wild cluster bootstrap function:
   # wild bootstrap
   # clustered (weights drawn per cluster, not per observation)
@@ -80,7 +79,7 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
     # Compute bootstrap percentile CI
     alpha <- 0.05
-    boot_ci <- t(apply(boot_coefs, 2, function(x) quantile(x, probs = c(alpha/2, 1 - alpha/2))))
+    boot_ci <- t(apply(boot_coefs, 2, function(x) quantile(x, probs = c(alpha / 2, 1 - alpha / 2))))
     colnames(boot_ci) <- c("lower", "upper")
 
     # Return list
@@ -92,236 +91,238 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   }
   # end of manual_wild_cluster_boot_se function
 
-  methods <- c("PET","PEESE","PET-PEESE","EK")
-  instrumented <- c("not instrumented","instrumented")
-  weighted <- c("no weights","standardly weighted", "adjusted weights")
-  studylevelcorrelation <- c("none","study level dummies", "cluster")
+  methods <- c("PET", "PEESE", "PET-PEESE", "EK")
+  instrumented <- c("not instrumented", "instrumented")
+  weighted <- c("no weights", "standardly weighted", "adjusted weights")
+  studylevelcorrelation <- c("none", "study level dummies", "cluster")
 
-  if (studylevel==0){
-    cluster<-0
-    dummy<-0
-  } else if (studylevel==1){
-    cluster<-0
-    dummy<-1
-  } else if (studylevel==2) {
-    cluster<-1
-    dummy<-0
-  } else if (studylevel==3) {
-    cluster<-1
-    dummy<-1
+  if (studylevel == 0) {
+    cluster <- 0
+    dummy <- 0
+  } else if (studylevel == 1) {
+    cluster <- 0
+    dummy <- 1
+  } else if (studylevel == 2) {
+    cluster <- 1
+    dummy <- 0
+  } else if (studylevel == 3) {
+    cluster <- 1
+    dummy <- 1
   }
   type_map <- c("CR0", "CR1", "CR2")
-  if (SE<3){
+  if (SE < 3) {
     type_choice <- type_map[SE + 1]
-  } else if (SE==3){               # not needed if bootstrap
+  } else if (SE == 3) { # not needed if bootstrap
     type_choice <- type_map[0 + 1]
   }
 
   # AR not available for EK, for fixed effects, and for weighted
-  if (method==4|weight==1|weight==2|instrument==0) {     AR<-0
+  if (method == 4 | weight == 1 | weight == 2 | instrument == 0) {
+    AR <- 0
   }
 
   # extracting data from excel
-  dat = as.data.frame(dat)
-  bs<-dat[,1]
-  M<-length(bs)
-  sebs<-dat[,2]
-  Ns<-dat[,3]
+  dat <- as.data.frame(dat)
+  bs <- dat[, 1]
+  M <- length(bs)
+  sebs <- dat[, 2]
+  Ns <- dat[, 3]
 
-  if (dim(dat)[2]==4){
-    studyid<-dat[,4]
+  if (dim(dat)[2] == 4) {
+    studyid <- dat[, 4]
   } else {
-    studyid<-(1:M)
-    dummy<-0
-    cluster<-0
+    studyid <- (1:M)
+    dummy <- 0
+    cluster <- 0
   }
 
   alpha_s <- 0.05
 
   # create Dummies from studyid
-  df<-data.frame(studyid)
-  D <- to.dummy(df,"studyid")
-  D <-D-matrix(colMeans(D),nrow=M,ncol=size(D)[2], byrow = TRUE)
-  D <- D[,1:(dim(D)[2]-1)]
+  df <- data.frame(studyid)
+  D <- to.dummy(df, "studyid")
+  D <- D - matrix(colMeans(D), nrow = M, ncol = size(D)[2], byrow = TRUE)
+  D <- D[, 1:(dim(D)[2] - 1)]
 
   # g=studyid if clustered and g=(1:M)' if not clustered (gives heteroskedastic robust SE)
-  if (cluster==0){
+  if (cluster == 0) {
     g <- (1:M)
-  } else if (cluster==1){
+  } else if (cluster == 1) {
     g <- studyid
   }
 
   dat$g <- g
 
   # (1) Instrumenting the variances with sample size allowing for a constant and including dummies
-  invNs<- 1/Ns
-  sebs2<- sebs^2
-  Xiv<-matrix(c(ones(M,1)[,1],invNs),nrow=M)
-  varreg1 <- lm(sebs2~ 0+Xiv)
-  dimiv<-2
-  if (varreg1$coefficients[1]<0){
-    Xiv<-invNs
-    varreg1 <- lm(sebs2~ 0+Xiv)
-    dimiv<-1
+  invNs <- 1 / Ns
+  sebs2 <- sebs^2
+  Xiv <- matrix(c(ones(M, 1)[, 1], invNs), nrow = M)
+  varreg1 <- lm(sebs2 ~ 0 + Xiv)
+  dimiv <- 2
+  if (varreg1$coefficients[1] < 0) {
+    Xiv <- invNs
+    varreg1 <- lm(sebs2 ~ 0 + Xiv)
+    dimiv <- 1
   }
 
   sebs2fit1 <- varreg1$fitted.values
 
   # F-statistic of first step. heteroskedasticity and autocorrelation robust variance HAC
-  F_hac <- (varreg1$coefficients[dimiv]^2 /vcovCR(varreg1, cluster = g, type = type_choice)[dimiv,dimiv])
+  F_hac <- (varreg1$coefficients[dimiv]^2 / vcovCR(varreg1, cluster = g, type = type_choice)[dimiv, dimiv])
 
-  #weight
-  if (weight==0){
-    w <- ones(M,1)[,1]
-  } else if (weight==1){
+  # weight
+  if (weight == 0) {
+    w <- ones(M, 1)[, 1]
+  } else if (weight == 1) {
     w <- sebs
-  } else if (weight==2){
-    w <- sebs2fit1^(1/2)
+  } else if (weight == 2) {
+    w <- sebs2fit1^(1 / 2)
   }
 
-  #instrument
-  if (instrument==0){
+  # instrument
+  if (instrument == 0) {
     x <- sebs
     x2 <- sebs^2
-    F_hac <-"NA"
-  } else if (instrument==1){
-    x <- sebs2fit1^(1/2)
+    F_hac <- "NA"
+  } else if (instrument == 1) {
+    x <- sebs2fit1^(1 / 2)
     x2 <- sebs2fit1
-    F_hac<-round(F_hac,3)
+    F_hac <- round(F_hac, 3)
   }
 
-  #choose dependent variable and regressor
-  y <- bs/w
+  # choose dependent variable and regressor
+  y <- bs / w
   x <- x
   x2 <- x2
-  X <- matrix(c(ones(M,1)[,1], x)/w,nrow=M)
-  X_d <- matrix(c(X, D/w), nrow=M)
-  X2 <- matrix(c(ones(M,1)[,1], x2)/w,nrow=M)
-  X2_d <- matrix(c(X2, D/w), nrow=M)
+  X <- matrix(c(ones(M, 1)[, 1], x) / w, nrow = M)
+  X_d <- matrix(c(X, D / w), nrow = M)
+  X2 <- matrix(c(ones(M, 1)[, 1], x2) / w, nrow = M)
+  X2_d <- matrix(c(X2, D / w), nrow = M)
 
   # baseline, i.e. chosen method, with chosen options of study-level correlation
   #  but with inverse-variance weighting and without instrumenting
-  y0 <- bs/sebs
+  y0 <- bs / sebs
   x0 <- sebs
-  x20 <- sebs ^2
-  X0 <- matrix(c(ones(M,1)[,1], x0)/sebs, nrow=M)
-  X0_d <- matrix(c(X0, D/sebs), nrow=M)
-  X20 <- matrix(c(ones(M,1)[,1], x20)/sebs, nrow=M)
-  X20_d <- matrix(c(X20, D/sebs),  nrow=M)
+  x20 <- sebs^2
+  X0 <- matrix(c(ones(M, 1)[, 1], x0) / sebs, nrow = M)
+  X0_d <- matrix(c(X0, D / sebs), nrow = M)
+  X20 <- matrix(c(ones(M, 1)[, 1], x20) / sebs, nrow = M)
+  X20_d <- matrix(c(X20, D / sebs), nrow = M)
 
-  if (dummy==0){
+  if (dummy == 0) {
     X <- X
     X0 <- X0
     X2 <- X2
     X20 <- X20
-    cD <- ones(M,1)[,1]
-  } else if (dummy==1){
+    cD <- ones(M, 1)[, 1]
+  } else if (dummy == 1) {
     X <- X_d
     X0 <- X0_d
     X2 <- X2_d
     X20 <- X20_d
-    cD <- matrix(c(ones(M,1)[,1],D),nrow=M)  # for EK stack constant and dummies
+    cD <- matrix(c(ones(M, 1)[, 1], D), nrow = M) # for EK stack constant and dummies
   }
 
-  cD<- cD/w
-  cD0<- cD/sebs
+  cD <- cD / w
+  cD0 <- cD / sebs
 
-  ones_w<-ones(M,1)[,1]/w
-  ones_w0<-ones(M,1)[,1]/sebs
+  ones_w <- ones(M, 1)[, 1] / w
+  ones_w0 <- ones(M, 1)[, 1] / sebs
 
   # Fixed effects (FE)
-  wis0 <- 1/(w^2)
-  fe <- sum(bs*wis0)/sum(wis0)
-  varfe <- 1/sum(wis0)
+  wis0 <- 1 / (w^2)
+  fe <- sum(bs * wis0) / sum(wis0)
+  varfe <- 1 / sum(wis0)
   # baseline
-  wis00 <- 1/(sebs^2)
-  fe0 <- sum(bs*wis00)/sum(wis00)
-  varfe0 <- 1/sum(wis00)
+  wis00 <- 1 / (sebs^2)
+  fe0 <- sum(bs * wis00) / sum(wis00)
+  varfe0 <- 1 / sum(wis00)
 
   # WLS
-  wlsreg <-lm(y~ 0+ cD )
+  wlsreg <- lm(y ~ 0 + cD)
   wls <- wlsreg$coefficients[1]
-  wlsse <- sqrt(vcovCR(wlsreg,cluster=g, type = type_choice)[1,1])
+  wlsse <- sqrt(vcovCR(wlsreg, cluster = g, type = type_choice)[1, 1])
   # baseline
-  wlsreg0 <-lm(y0~ 0+ cD0 )
+  wlsreg0 <- lm(y0 ~ 0 + cD0)
   wls0 <- wlsreg0$coefficients[1]
-  wlsse0 <- sqrt(vcovCR(wlsreg0, cluster=g, type = type_choice)[1,1])
+  wlsse0 <- sqrt(vcovCR(wlsreg0, cluster = g, type = type_choice)[1, 1])
 
   # FAT-PET - MAIVE
-  fatpet <- lm(y~ 0+X)
+  fatpet <- lm(y ~ 0 + X)
   # FAT-PET - baseline case
-  fatpet0 <- lm(y0~ 0+X0)
+  fatpet0 <- lm(y0 ~ 0 + X0)
 
   # PEESE - MAIVE
-  peese <- lm(y~0+X2)
+  peese <- lm(y ~ 0 + X2)
   # PEESE - baseline case
-  peese0 <- lm(y0~0+X20)
+  peese0 <- lm(y0 ~ 0 + X20)
+
 
   # PET-PEESE - MAIVE
-  if (abs(fatpet$coefficients[1]/sqrt(vcovCR(fatpet,cluster=g, type = type_choice)[1,1]))>qt(1-alpha_s/2,M-dim(X)[2]-1)){
+  is_quadratic_fit <- abs(fatpet$coefficients[1] / sqrt(vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X)[2] - 1)
+  if (is_quadratic_fit) {
     petpeese <- peese
   } else {
     petpeese <- fatpet
   }
   # PET-PEESE - baseline case
-  if (abs(fatpet0$coefficients[1]/sqrt(vcovCR(fatpet0,cluster=g, type = type_choice)[1,1]))>qt(1-alpha_s/2,M-dim(X0)[2]-1)){
+  is_quadratic_fit0 <- abs(fatpet0$coefficients[1] / sqrt(vcovCR(fatpet0, cluster = g, type = type_choice)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X0)[2] - 1)
+  if (is_quadratic_fit0) {
     petpeese0 <- peese0
   } else {
     petpeese0 <- fatpet0
   }
 
   # True effect variance - MAIVE
-  Qfe0 <- sum(wlsreg$residuals*wlsreg$residuals)
-  sigh2hat0 <- max(0,M*((Qfe0/(M-dim(wlsreg$model)[2]-1))-1)/sum(wis0))
+  Qfe0 <- sum(wlsreg$residuals * wlsreg$residuals)
+  sigh2hat0 <- max(0, M * ((Qfe0 / (M - dim(wlsreg$model)[2] - 1)) - 1) / sum(wis0))
   sighhat0 <- sqrt(sigh2hat0)
-  #True effect variance - baseline
-  Qfe00 <- sum(wlsreg0$residuals*wlsreg0$residuals)
-  sigh2hat00 <- max(0,M*((Qfe00/(M-dim(wlsreg0$model)[2]-1))-1)/sum(wis00))
+  # True effect variance - baseline
+  Qfe00 <- sum(wlsreg0$residuals * wlsreg0$residuals)
+  sigh2hat00 <- max(0, M * ((Qfe00 / (M - dim(wlsreg0$model)[2] - 1)) - 1) / sum(wis00))
   sighhat00 <- sqrt(sigh2hat00)
 
   # Endogenous Kink (EK) Threshold- MAIVE
-  if (petpeese$coefficients[1] > 1.96*sighhat0){
-    a0 <- (petpeese$coefficients[1]-1.96*sighhat0)*(petpeese$coefficients[1]+1.96*sighhat0)/(2*1.96*petpeese$coefficients[1])
+  if (petpeese$coefficients[1] > 1.96 * sighhat0) {
+    a0 <- (petpeese$coefficients[1] - 1.96 * sighhat0) * (petpeese$coefficients[1] + 1.96 * sighhat0) / (2 * 1.96 * petpeese$coefficients[1])
   } else {
     a0 <- 0
   }
   # Endogenous Kink (EK) Threshold - baseline
-  if (petpeese0$coefficients[1] > 1.96*sighhat00){
-    a00 <- (petpeese0$coefficients[1]-1.96*sighhat00)*(petpeese0$coefficients[1]+1.96*sighhat00)/(2*1.96*petpeese0$coefficients[1])
+  if (petpeese0$coefficients[1] > 1.96 * sighhat00) {
+    a00 <- (petpeese0$coefficients[1] - 1.96 * sighhat00) * (petpeese0$coefficients[1] + 1.96 * sighhat00) / (2 * 1.96 * petpeese0$coefficients[1])
   } else {
     a00 <- 0
   }
 
   # EK - MAIVE
-  if (a0>min(x)  && a0<max(x)){
-    xx_w=(x-a0)*(x>a0)/w
-    ekreg <- lm(y~ 0+cD+xx_w)
-  } else if (a0<min(x)){
-    x_w=x/w
-    ekreg <- lm(y~ 0+cD+x_w)
-  } else if (a0>max(x)){
-    ekreg <- lm(y~ 0+cD)
+  if (a0 > min(x) && a0 < max(x)) {
+    xx_w <- (x - a0) * (x > a0) / w
+    ekreg <- lm(y ~ 0 + cD + xx_w)
+  } else if (a0 < min(x)) {
+    x_w <- x / w
+    ekreg <- lm(y ~ 0 + cD + x_w)
+  } else if (a0 > max(x)) {
+    ekreg <- lm(y ~ 0 + cD)
   }
   ek <- ekreg$coefficients[1]
 
   # EK - baseline
-  if (a00>min(x0)  && a00<max(x0)){
-    xx0_w=(x0-a00)*(x0>a00)/sebs
-    ekreg0 <- lm(y0~ 0+cD0+xx0_w)
-  } else if (a00<min(x0)){
-    x0_w=x0/sebs
-    ekreg0 <- lm(y0~ 0+cD0+x0_w )
-  } else if (a00>max(x0)){
-    ekreg0 <- lm(y0~ 0+cD0 )
+  if (a00 > min(x0) && a00 < max(x0)) {
+    xx0_w <- (x0 - a00) * (x0 > a00) / sebs
+    ekreg0 <- lm(y0 ~ 0 + cD0 + xx0_w)
+  } else if (a00 < min(x0)) {
+    x0_w <- x0 / sebs
+    ekreg0 <- lm(y0 ~ 0 + cD0 + x0_w)
+  } else if (a00 > max(x0)) {
+    ekreg0 <- lm(y0 ~ 0 + cD0)
   }
   ek0 <- ekreg0$coefficients[1]
 
 
   # Anderson and Rubin Confidence intervals
   if (AR == 1) {
-
     compute_AR_CI_fast <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
-
       # Beta estimates and robust SEs
       beta0 <- model$coefficients[1]
       beta0se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[1, 1])
@@ -335,8 +336,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
       u1 <- beta1 + 5 * beta1se
       pr1 <- max(100, round(100 / (u1 - l1)))
 
-      b0_grid <- seq(l0, u0, by = 1/pr0)
-      b1_grid <- seq(l1, u1, by = 1/pr1)
+      b0_grid <- seq(l0, u0, by = 1 / pr0)
+      b1_grid <- seq(l1, u1, by = 1 / pr1)
 
       M <- length(bs)
       ones_vec <- rep(1, M)
@@ -405,109 +406,109 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
     # PET-PEESE without weights and with AR CI
     # if PET does not contain 0, do PEESE.
-    if (b0_CI_AR_PET[1]>0) {
-      b0_CI_AR_PP<-b0_CI_AR_PEESE
-    } else if (b0_CI_AR_PET[1]<=0) {
-      b0_CI_AR_PP<-b0_CI_AR_PET
+    if (b0_CI_AR_PET[1] > 0) {
+      b0_CI_AR_PP <- b0_CI_AR_PEESE
+    } else if (b0_CI_AR_PET[1] <= 0) {
+      b0_CI_AR_PP <- b0_CI_AR_PET
     }
-  } else if (AR==0) {
-    b0_CI_AR_PET= "NA"
-    b0_CI_AR_PEESE= "NA"
-    b0_CI_AR_PP= "NA"
+  } else if (AR == 0) {
+    b0_CI_AR_PET <- "NA"
+    b0_CI_AR_PEESE <- "NA"
+    b0_CI_AR_PP <- "NA"
   }
 
   "RESULTS"
-  if (method==1){
+  if (method == 1) {
     "MAIVE-FAT-PET"
-    beta=fatpet$coefficients[1]
-    betase=sqrt(vcovCR(fatpet,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = fatpet,data = dat,cluster_var = "g",B = 500)
+    beta <- fatpet$coefficients[1]
+    betase <- sqrt(vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = fatpet, data = dat, cluster_var = "g", B = 500)
       betase <- boot_result$boot_se[1]
     }
     "Standard FAT-PET"
-    beta0=fatpet0$coefficients[1]
-    beta0se=sqrt(vcovCR(fatpet0,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = fatpet0,data = dat,cluster_var = "g",B = 500)
+    beta0 <- fatpet0$coefficients[1]
+    beta0se <- sqrt(vcovCR(fatpet0, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = fatpet0, data = dat, cluster_var = "g", B = 500)
       beta0se <- boot_result$boot_se[1]
     }
     "Hausman-type test"
-    Hausman=(fatpet$coefficients[1]-fatpet0$coefficients[1])^2/(vcovCR(fatpet,cluster=g, type = type_choice)[1,1])
-    Chi2=qchisq(p=0.05, df=1, lower.tail=FALSE)
+    Hausman <- (fatpet$coefficients[1] - fatpet0$coefficients[1])^2 / (vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
+    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
     "AR-CI"
-    b0_CI_AR=b0_CI_AR_PET
-  } else if (method==2){
+    b0_CI_AR <- b0_CI_AR_PET
+  } else if (method == 2) {
     "MAIVE-PEESE"
-    beta=peese$coefficients[1]
-    betase=sqrt(vcovCR(peese,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = peese,data = dat,cluster_var = "g",B = 500)
+    beta <- peese$coefficients[1]
+    betase <- sqrt(vcovCR(peese, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = peese, data = dat, cluster_var = "g", B = 500)
       betase <- boot_result$boot_se[1]
     }
     "Standard PEESE"
-    beta0=peese0$coefficients[1]
-    beta0se=sqrt(vcovCR(peese0,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = peese0,data = dat,cluster_var = "g",B = 500)
+    beta0 <- peese0$coefficients[1]
+    beta0se <- sqrt(vcovCR(peese0, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = peese0, data = dat, cluster_var = "g", B = 500)
       beta0se <- boot_result$boot_se[1]
     }
     "Hausman-type test"
-    Hausman=(peese$coefficients[1]-peese0$coefficients[1])^2/(vcovCR(peese,cluster=g, type = type_choice)[1,1])
-    Chi2=qchisq(p=0.05, df=1, lower.tail=FALSE)
+    Hausman <- (peese$coefficients[1] - peese0$coefficients[1])^2 / (vcovCR(peese, cluster = g, type = type_choice)[1, 1])
+    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
     "AR-CI"
-    b0_CI_AR=b0_CI_AR_PEESE
-  } else if (method==3){
+    b0_CI_AR <- b0_CI_AR_PEESE
+  } else if (method == 3) {
     "MAIVE-PET-PEESE"
-    beta=petpeese$coefficients[1]
-    betase=sqrt(vcovCR(petpeese,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = petpeese,data = dat,cluster_var = "g",B = 500)
+    beta <- petpeese$coefficients[1]
+    betase <- sqrt(vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = petpeese, data = dat, cluster_var = "g", B = 500)
       betase <- boot_result$boot_se[1]
     }
 
     "Standard PET-PEESE"
-    beta0=petpeese0$coefficients[1]
-    beta0se=sqrt(vcovCR(petpeese0,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = petpeese0,data = dat,cluster_var = "g",B = 500)
+    beta0 <- petpeese0$coefficients[1]
+    beta0se <- sqrt(vcovCR(petpeese0, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = petpeese0, data = dat, cluster_var = "g", B = 500)
       beta0se <- boot_result$boot_se[1]
     }
     "Hausman-type test"
-    Hausman=(petpeese$coefficients[1]-petpeese0$coefficients[1])^2/(vcovCR(petpeese,cluster=g, type = type_choice)[1,1])
-    Chi2=qchisq(p=0.05, df=1, lower.tail=FALSE)
+    Hausman <- (petpeese$coefficients[1] - petpeese0$coefficients[1])^2 / (vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
+    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
     "AR-CI"
-    b0_CI_AR=b0_CI_AR_PP
-  } else if (method==4){
+    b0_CI_AR <- b0_CI_AR_PP
+  } else if (method == 4) {
     "MAIVE-EK"
-    beta=ekreg$coefficients[1]
-    betase=sqrt(vcovCR(ekreg,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = ekreg,data = dat,cluster_var = "g",B = 500)
+    beta <- ekreg$coefficients[1]
+    betase <- sqrt(vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = ekreg, data = dat, cluster_var = "g", B = 500)
       betase <- boot_result$boot_se[1]
     }
     "Standard EK"
-    beta0=ekreg0$coefficients[1]
-    beta0se=sqrt(vcovCR(ekreg0,cluster=g, type = type_choice)[1,1])
-    if (SE==3){
-      boot_result <- manual_wild_cluster_boot_se(model = ekreg0,data = dat,cluster_var = "g",B = 500)
+    beta0 <- ekreg0$coefficients[1]
+    beta0se <- sqrt(vcovCR(ekreg0, cluster = g, type = type_choice)[1, 1])
+    if (SE == 3) {
+      boot_result <- manual_wild_cluster_boot_se(model = ekreg0, data = dat, cluster_var = "g", B = 500)
       beta0se <- boot_result$boot_se[1]
     }
     "Hausman-type test" # with variance of MAIVE in denominator (instead of the difference) hence is conservative
-    Hausman=(ekreg$coefficients[1]-ekreg0$coefficients[1])^2/(vcovCR(ekreg,cluster=g, type = type_choice)[1,1])
-    Chi2=qchisq(p=0.05, df=1, lower.tail=FALSE)
+    Hausman <- (ekreg$coefficients[1] - ekreg0$coefficients[1])^2 / (vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
+    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
     "AR-CI"
-    b0_CI_AR="NA"
+    b0_CI_AR <- "NA"
   }
 
-  if (weight==1||weight==2){
+  if (weight == 1 || weight == 2) {
     "AR-CI"
-    b0_CI_AR="NA"
+    b0_CI_AR <- "NA"
   }
 
   "p-value of test for publication bias / p-hacking based on instrumented FAT"
-  pb_p=summary(fatpet)$coefficients[2, 4]
+  pb_p <- summary(fatpet)$coefficients[2, 4]
 
-  my_list <- list("beta"=round(beta,3), "SE"=round(betase,3),"F-test"=F_hac,"beta_standard"=round(beta0,3),"SE_standard"=round(beta0se,3),"Hausman"=round(Hausman,3), "Chi2"=round(Chi2,3), "SE_instrumented"=sebs2fit1^(1/2), "AR_CI"=b0_CI_AR, "pub bias p-value"=round(pb_p,3))
+  my_list <- list("beta" = round(beta, 3), "SE" = round(betase, 3), "F-test" = F_hac, "beta_standard" = round(beta0, 3), "SE_standard" = round(beta0se, 3), "Hausman" = round(Hausman, 3), "Chi2" = round(Chi2, 3), "SE_instrumented" = sebs2fit1^(1 / 2), "AR_CI" = b0_CI_AR, "pub bias p-value" = round(pb_p, 3), "is_quadratic_fit" = is_quadratic_fit)
   return(my_list)
 }
