@@ -21,6 +21,7 @@ install.packages("devtools")
 devtools::install_github("meta-analysis-es/meta_maive")
 library(meta_maive)
 ```
+
 For help on the `maive.R` function:
 
 ```r
@@ -28,6 +29,7 @@ help(maive)
 ```
 
 ## Data Structure
+
 The data should have the following structure:
 
 | Column | Label    | Description                                                    |
@@ -38,6 +40,7 @@ The data should have the following structure:
 | 4      | study id | Study identification number (needed for clustering/study fixed effects) |
 
 ## Options
+
 The user needs to specify the following options (with defaults in parentheses):
 
 | Option       | Description                                  | Values                                              |
@@ -49,6 +52,7 @@ The user needs to specify the following options (with defaults in parentheses):
 | AR           | Anderson-Rubin confidence interval (only for unweighted) | No=0 (default), Yes=1                      |
 
 ## Description of Default Settings
+
 The default MAIVE meta-estimator is MAIVE-PET-PEESE with instrumented standard errors and no weights. However, the user can adjust:
 
 - The meta-analysis method (PET, PEESE, PET-PEESE, EK).
@@ -57,6 +61,7 @@ The default MAIVE meta-estimator is MAIVE-PET-PEESE with instrumented standard e
 - Accounting for study-level correlation (none, fixed effects, or cluster-robust methods).
 
 ## Output
+
 The function returns:
 
 - A MAIVE point estimate and standard error.
@@ -67,26 +72,14 @@ The function returns:
 - Instrumented standard errors saved as `MAIVE$SE_instrumented`.
 
 ## Technical Comments
+
 - The first stage regresses variances on a constant and inverse sample sizes.
 - The Hausman-type test is weighted by the variance of the MAIVE estimator (conservative test).
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).
 
-## Required Packages
-
-The following R packages might be needed:
-
-- pracma
-- varhandle
-- sandwich
-
-You can install them with:
-
-```r
-install.packages(c("pracma", "varhandle", "sandwich"))
-```
-
 ## References
+
 Keane, Michael and Neal, Timothy. 2023. “Instrument strength in IV estimation and inference: A guide to theory and practice”, Journal of Econometrics, 235(2), 1625-1653.
-https://doi.org/10.1016/j.jeconom.2022.12.009
+<https://doi.org/10.1016/j.jeconom.2022.12.009>

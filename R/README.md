@@ -1,5 +1,6 @@
 MAIVE in R: Instructions to the User
 ================
+
 May 2025
 
 This readme provides instructions on the implementation of the MAIVE
@@ -88,20 +89,6 @@ The function returns:
 - If no study-id column is provided, the program assumes no study-level
   correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).
-
-## Required Packages
-
-The following R packages might be needed:
-
-- pracma
-- varhandle
-- sandwich
-
-You can install them with:
-
-``` r
-install.packages(c("pracma", "varhandle", "sandwich"))
-```
 
 ## References
 

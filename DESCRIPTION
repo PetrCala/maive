@@ -36,7 +36,12 @@ Depends:
     R (>= 4.0.0)
 Imports: 
     stats,
-    utils
+    utils,
+    clubSandwich,
+    metafor,
+    pracma,
+    sandwich,
+    varhandle
 Suggests: 
     testthat,
     knitr,
