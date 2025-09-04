@@ -405,10 +405,12 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
 
     # PET-PEESE without weights and with AR CI
-    # if PET does not contain 0, do PEESE.
-    if (b0_CI_AR_PET[1] > 0) {
+    # Use the AR CI that corresponds to the actual model selected (petpeese)
+    if (identical(petpeese, peese)) {
+      # If PEESE model was selected, use PEESE AR CI
       b0_CI_AR_PP <- b0_CI_AR_PEESE
-    } else if (b0_CI_AR_PET[1] <= 0) {
+    } else {
+      # If PET model was selected, use PET AR CI
       b0_CI_AR_PP <- b0_CI_AR_PET
     }
   } else if (AR == 0) {
