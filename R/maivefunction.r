@@ -43,25 +43,12 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   weighted <- c("no weights", "standardly weighted", "adjusted weights")
   studylevelcorrelation <- c("none", "study level dummies", "cluster")
 
-  if (studylevel == 0) {
-    cluster <- 0
-    dummy <- 0
-  } else if (studylevel == 1) {
-    cluster <- 0
-    dummy <- 1
-  } else if (studylevel == 2) {
-    cluster <- 1
-    dummy <- 0
-  } else if (studylevel == 3) {
-    cluster <- 1
-    dummy <- 1
-  }
+  # cluster for studylevel >=2, dummy for studylevel 1 or 3
+  cluster <- studylevel %/% 2L
+  dummy <- studylevel %% 2L
+
   type_map <- c("CR0", "CR1", "CR2")
-  if (SE < 3) {
-    type_choice <- type_map[SE + 1]
-  } else if (SE == 3) { # not needed if bootstrap
-    type_choice <- type_map[0 + 1]
-  }
+  type_choice <- if (SE == 3L) "CR0" else type_map[SE + 1L] # not needed if bootstrap
 
   # AR not available for EK, for fixed effects, and for weighted
   if (method == 4 | weight == 1 | weight == 2 | instrument == 0) {
