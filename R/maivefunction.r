@@ -353,7 +353,7 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "Hausman"           = round(Hausman, 3),
     "Chi2"              = round(Chi2, 3),
     "SE_instrumented"   = sebs2fit1^(1 / 2),
-    "AR_CI"             = ar_ci_res$b0_CI, # keep as-is per your code
+    "AR_CI"             = ar_ci_res$b0_CI,
     "pub bias p-value"  = round(pb_p, 3),
     "is_quadratic_fit"  = is_quadratic_fit,
     "boot_result"       = boot_result, # NULL unless SE == 3
