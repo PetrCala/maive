@@ -511,10 +511,10 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   }
 
   "p-value of test for publication bias / p-hacking based on instrumented FAT"
-  pb_p <- summary(fatpet)$coefficients[2, 4]
-
+  # Dynamic pb_p based on the actual chosen model
   model_list <- list(fatpet, peese, petpeese, ekreg)
   selected_model <- model_list[[method]]
+  pb_p <- summary(selected_model)$coefficients[2, 4]
   slope_coef <- round(as.numeric(summary(selected_model)$coefficients[2, 1]), 3)
 
   my_list <- list("beta" = round(beta, 3), "SE" = round(betase, 3), "F-test" = F_hac, "beta_standard" = round(beta0, 3), "SE_standard" = round(beta0se, 3), "Hausman" = round(Hausman, 3), "Chi2" = round(Chi2, 3), "SE_instrumented" = sebs2fit1^(1 / 2), "AR_CI" = b0_CI_AR, "pub bias p-value" = round(pb_p, 3), "is_quadratic_fit" = is_quadratic_fit, "boot_result" = boot_result, "slope_coef" = slope_coef)
