@@ -1,3 +1,140 @@
+manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed = 123) {
+  set.seed(seed)
+
+  # Extract residuals and fitted values
+  resids <- residuals(model)
+  fitted_vals <- fitted(model)
+
+  # Get cluster IDs
+  clusters <- unique(as.character(data[[cluster_var]]))
+  G <- length(clusters)
+
+  # Coefficient names
+  coef_names <- names(coef(model))
+  k <- length(coef_names)
+
+  # Matrix to store bootstrap coefficients
+  boot_coefs <- matrix(NA, nrow = B, ncol = k)
+  colnames(boot_coefs) <- coef_names
+
+  # Loop over bootstrap replications
+  for (b in 1:B) {
+    # Draw Rademacher multipliers per cluster
+    u_g <- sample(c(-1, 1), size = G, replace = TRUE)
+    names(u_g) <- as.character(clusters)
+
+    # Create bootstrap outcome
+    data$y_boot <- fitted_vals + resids * u_g[as.character(data[[cluster_var]])]
+
+    # Refit the same model formula on bootstrap sample
+    form_boot <- update(formula(model), y_boot ~ .)
+    fit_boot <- lm(form_boot, data = data)
+
+    # Store bootstrap coefficients
+    boot_coefs[b, ] <- coef(fit_boot)
+  }
+
+  # Compute bootstrap SEs
+  boot_se <- apply(boot_coefs, 2, sd)
+
+  # Compute bootstrap percentile CI
+  alpha <- 0.05
+  boot_ci <- t(apply(boot_coefs, 2, function(x) quantile(x, probs = c(alpha / 2, 1 - alpha / 2))))
+  colnames(boot_ci) <- c("lower", "upper")
+
+  # Return list
+  return(list(
+    boot_se = boot_se,
+    boot_ci = boot_ci,
+    boot_coefs = boot_coefs
+  ))
+}
+
+# end of manual_wild_cluster_boot_se function
+compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
+  # Beta estimates and robust SEs
+  beta0 <- model$coefficients[1]
+  beta0se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[1, 1])
+  beta1 <- model$coefficients[2]
+  beta1se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[2, 2])
+
+  # Adaptive grid resolution based on dataset size
+  M <- length(bs)
+  base_resolution <- min(50, max(20, round(sqrt(M))))
+
+  # Tighter bounds for better performance
+  l0 <- beta0 - 3 * beta0se
+  u0 <- beta0 + 3 * beta0se
+  l1 <- beta1 - 3 * beta1se
+  u1 <- beta1 + 3 * beta1se
+
+  # Adaptive grid resolution
+  pr0 <- max(base_resolution, round(base_resolution * 10 / (u0 - l0)))
+  pr1 <- max(base_resolution, round(base_resolution * 10 / (u1 - l1)))
+
+  b0_grid <- seq(l0, u0, length.out = min(pr0, 200))
+  b1_grid <- seq(l1, u1, length.out = min(pr1, 200))
+
+  # Pre-compute matrices (reused across all grid points)
+  ones_vec <- rep(1, M)
+  Z <- cbind(ones_vec, invNs)
+  ZtZ_inv <- solve(t(Z) %*% Z)
+  PZ <- Z %*% ZtZ_inv %*% t(Z)
+  MZ <- diag(M) - PZ
+
+  # Pre-compute sebs powers for adjustment functions
+  sebs_sq <- sebs^2
+
+  # Vectorized computation using outer product
+  compute_AR_stats_vectorized <- function(b0_vals, b1_vals) {
+    n_b0 <- length(b0_vals)
+    n_b1 <- length(b1_vals)
+
+    # Create matrices for vectorized computation
+    b0_mat <- matrix(b0_vals, nrow = n_b0, ncol = n_b1, byrow = FALSE)
+    b1_mat <- matrix(b1_vals, nrow = n_b0, ncol = n_b1, byrow = TRUE)
+
+    # Vectorized adjustment (works for both PET and PEESE)
+    if (identical(adjust_fun, PET_adjust)) {
+      # PET: bs - b0 - b1 * sebs
+      bs_star_mat <- bs - b0_mat - b1_mat * sebs
+    } else {
+      # PEESE: bs - b0 - b1 * sebs^2
+      bs_star_mat <- bs - b0_mat - b1_mat * sebs_sq
+    }
+
+    # Vectorized AR statistic computation
+    PZ_bs_star <- PZ %*% bs_star_mat
+    MZ_bs_star <- MZ %*% bs_star_mat
+
+    num <- colSums(bs_star_mat * PZ_bs_star)
+    denom <- colSums(bs_star_mat * MZ_bs_star)
+
+    # Avoid division by zero
+    denom[abs(denom) < 1e-10] <- 1e-10
+
+    stats <- (M - 2) * num / denom
+    matrix(stats, nrow = n_b0, ncol = n_b1)
+  }
+
+  AR_stats <- compute_AR_stats_vectorized(b0_grid, b1_grid)
+
+  # Check which are accepted
+  AR_accept <- AR_stats < 5.99
+
+  b0_CI_all <- b0_grid[rowSums(AR_accept) > 0]
+  b1_CI_all <- b1_grid[colSums(AR_accept) > 0]
+
+  b0_CI <- c(b0_CI_all[1], b0_CI_all[length(b0_CI_all)])
+  b1_CI <- c(b1_CI_all[1], b1_CI_all[length(b1_CI_all)])
+
+  list(
+    b0_CI = round(b0_CI, 3),
+    b1_CI = round(b1_CI, 3)
+  )
+}
+
+
 #' R code for MAIVE
 #'
 #' R package for MAIVE: "Spurious Precision in Meta-Analysis of Observational Research" by
@@ -38,58 +175,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   # clustered (weights drawn per cluster, not per observation)
   # with Rademacher distribution (i.e., ±1 with 0.5 probability each)
 
-  manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed = 123) {
-    set.seed(seed)
-
-    # Extract residuals and fitted values
-    resids <- residuals(model)
-    fitted_vals <- fitted(model)
-
-    # Get cluster IDs
-    clusters <- unique(as.character(data[[cluster_var]]))
-    G <- length(clusters)
-
-    # Coefficient names
-    coef_names <- names(coef(model))
-    k <- length(coef_names)
-
-    # Matrix to store bootstrap coefficients
-    boot_coefs <- matrix(NA, nrow = B, ncol = k)
-    colnames(boot_coefs) <- coef_names
-
-    # Loop over bootstrap replications
-    for (b in 1:B) {
-      # Draw Rademacher multipliers per cluster
-      u_g <- sample(c(-1, 1), size = G, replace = TRUE)
-      names(u_g) <- as.character(clusters)
-
-      # Create bootstrap outcome
-      data$y_boot <- fitted_vals + resids * u_g[as.character(data[[cluster_var]])]
-
-      # Refit the same model formula on bootstrap sample
-      form_boot <- update(formula(model), y_boot ~ .)
-      fit_boot <- lm(form_boot, data = data)
-
-      # Store bootstrap coefficients
-      boot_coefs[b, ] <- coef(fit_boot)
-    }
-
-    # Compute bootstrap SEs
-    boot_se <- apply(boot_coefs, 2, sd)
-
-    # Compute bootstrap percentile CI
-    alpha <- 0.05
-    boot_ci <- t(apply(boot_coefs, 2, function(x) quantile(x, probs = c(alpha / 2, 1 - alpha / 2))))
-    colnames(boot_ci) <- c("lower", "upper")
-
-    # Return list
-    return(list(
-      boot_se = boot_se,
-      boot_ci = boot_ci,
-      boot_coefs = boot_coefs
-    ))
-  }
-  # end of manual_wild_cluster_boot_se function
 
   methods <- c("PET", "PEESE", "PET-PEESE", "EK")
   instrumented <- c("not instrumented", "instrumented")
@@ -319,105 +404,36 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   }
   ek0 <- ekreg0$coefficients[1]
 
-
   # Anderson and Rubin Confidence intervals
-  if (AR == 1) {
-    compute_AR_CI_fast <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
-      # Beta estimates and robust SEs
-      beta0 <- model$coefficients[1]
-      beta0se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[1, 1])
-      l0 <- beta0 - 5 * beta0se
-      u0 <- beta0 + 5 * beta0se
-      pr0 <- max(100, round(100 / (u0 - l0)))
-
-      beta1 <- model$coefficients[2]
-      beta1se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[2, 2])
-      l1 <- beta1 - 5 * beta1se
-      u1 <- beta1 + 5 * beta1se
-      pr1 <- max(100, round(100 / (u1 - l1)))
-
-      b0_grid <- seq(l0, u0, by = 1 / pr0)
-      b1_grid <- seq(l1, u1, by = 1 / pr1)
-
-      M <- length(bs)
-      ones_vec <- rep(1, M)
-      Z <- cbind(ones_vec, invNs)
-      PZ <- Z %*% solve(t(Z) %*% Z) %*% t(Z)
-      MZ <- diag(M) - PZ
-
-      # Make full grid of b0 and b1
-      grid <- expand.grid(b0 = b0_grid, b1 = b1_grid)
-
-      # For each row in grid, compute AR stat
-      compute_stat <- function(row) {
-        b0 <- row["b0"]
-        b1 <- row["b1"]
-
-        bs_star <- adjust_fun(bs, b0, b1, sebs)
-
-        num <- as.numeric(crossprod(bs_star, PZ %*% bs_star))
-        denom <- as.numeric(crossprod(bs_star, MZ %*% bs_star))
-
-        stat <- (M - 2) * num / denom
-        stat
-      }
-
-      AR_stats <- apply(grid, 1, compute_stat)
-
-      # Check which are accepted
-      AR_accept <- matrix(AR_stats < 5.99, nrow = length(b0_grid), ncol = length(b1_grid), byrow = FALSE)
-
-      b0_CI_all <- b0_grid[rowSums(AR_accept) > 0]
-      b1_CI_all <- b1_grid[colSums(AR_accept) > 0]
-
-      b0_CI <- c(b0_CI_all[1], b0_CI_all[length(b0_CI_all)])
-      b1_CI <- c(b1_CI_all[1], b1_CI_all[length(b1_CI_all)])
-
-      list(
-        b0_CI = round(b0_CI, 3),
-        b1_CI = round(b1_CI, 3)
-      )
+  get_ar_ci_res <- function() {
+    # Either AR disabled or EK (no AR CI)
+    if (AR != 1 || method == 4 || weight == 1 || weight == 2) {
+      return(list(b0_CI = "NA", b1_CI = "NA"))
     }
 
-    # PET adjustment
     PET_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs
-
-    # PEESE adjustment
     PEESE_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs^2
 
-    # Compute AR CIs for PET
-    pet_res <- compute_AR_CI_fast(
-      model = fatpet, adjust_fun = PET_adjust,
-      bs = bs, sebs = sebs, invNs = invNs,
-      g = g, type_choice = type_choice
+    cfg <- switch(as.character(method),
+      "1" = list(model = fatpet, adjust_fun = PET_adjust),
+      "2" = list(model = peese, adjust_fun = PEESE_adjust),
+      "3" = if (identical(petpeese, peese)) {
+        list(model = peese, adjust_fun = PEESE_adjust)
+      } else {
+        list(model = fatpet, adjust_fun = PET_adjust)
+      },
+      stop("Invalid method")
     )
-    b0_CI_AR_PET <- pet_res$b0_CI
-    b1_CI_AR_PET <- pet_res$b1_CI
 
-    # Compute AR CIs for PEESE
-    peese_res <- compute_AR_CI_fast(
-      model = peese, adjust_fun = PEESE_adjust,
-      bs = bs, sebs = sebs, invNs = invNs,
-      g = g, type_choice = type_choice
+    do.call(
+      compute_AR_CI_optimized,
+      c(cfg, list(
+        bs = bs, sebs = sebs, invNs = invNs, g = g, type_choice = type_choice
+      ))
     )
-    b0_CI_AR_PEESE <- peese_res$b0_CI
-    b1_CI_AR_PEESE <- peese_res$b1_CI
-
-
-    # PET-PEESE without weights and with AR CI
-    # Use the AR CI that corresponds to the actual model selected (petpeese)
-    if (identical(petpeese, peese)) {
-      # If PEESE model was selected, use PEESE AR CI
-      b0_CI_AR_PP <- b0_CI_AR_PEESE
-    } else {
-      # If PET model was selected, use PET AR CI
-      b0_CI_AR_PP <- b0_CI_AR_PET
-    }
-  } else if (AR == 0) {
-    b0_CI_AR_PET <- "NA"
-    b0_CI_AR_PEESE <- "NA"
-    b0_CI_AR_PP <- "NA"
   }
+
+  ar_ci_res <- get_ar_ci_res()
 
   boot_result <- NULL # Initialize the object
 
@@ -517,6 +533,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   pb_p <- summary(selected_model)$coefficients[2, 4]
   slope_coef <- round(as.numeric(summary(selected_model)$coefficients[2, 1]), 3)
 
-  my_list <- list("beta" = round(beta, 3), "SE" = round(betase, 3), "F-test" = F_hac, "beta_standard" = round(beta0, 3), "SE_standard" = round(beta0se, 3), "Hausman" = round(Hausman, 3), "Chi2" = round(Chi2, 3), "SE_instrumented" = sebs2fit1^(1 / 2), "AR_CI" = b0_CI_AR, "pub bias p-value" = round(pb_p, 3), "is_quadratic_fit" = is_quadratic_fit, "boot_result" = boot_result, "slope_coef" = slope_coef)
+  my_list <- list("beta" = round(beta, 3), "SE" = round(betase, 3), "F-test" = F_hac, "beta_standard" = round(beta0, 3), "SE_standard" = round(beta0se, 3), "Hausman" = round(Hausman, 3), "Chi2" = round(Chi2, 3), "SE_instrumented" = sebs2fit1^(1 / 2), "AR_CI" = ar_ci_res$b0_CI, "pub bias p-value" = round(pb_p, 3), "is_quadratic_fit" = is_quadratic_fit, "boot_result" = boot_result, "slope_coef" = slope_coef)
   return(my_list)
 }
