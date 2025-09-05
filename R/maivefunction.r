@@ -193,14 +193,15 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
 
   # PET-PEESE - MAIVE
-  is_quadratic_fit <- abs(fatpet$coefficients[1] / sqrt(vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X)[2] - 1)
+  # Model selection should use standard OLS SEs, not robust/clustered SEs
+  is_quadratic_fit <- abs(fatpet$coefficients[1] / sqrt(vcov(fatpet)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X)[2] - 1)
   if (is_quadratic_fit) {
     petpeese <- peese
   } else {
     petpeese <- fatpet
   }
   # PET-PEESE - baseline case
-  is_quadratic_fit0 <- abs(fatpet0$coefficients[1] / sqrt(vcovCR(fatpet0, cluster = g, type = type_choice)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X0)[2] - 1)
+  is_quadratic_fit0 <- abs(fatpet0$coefficients[1] / sqrt(vcov(fatpet0)[1, 1])) > qt(1 - alpha_s / 2, M - dim(X0)[2] - 1)
   if (is_quadratic_fit0) {
     petpeese0 <- peese0
   } else {
