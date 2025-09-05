@@ -460,8 +460,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "Hausman-type test"
     Hausman <- (fatpet$coefficients[1] - fatpet0$coefficients[1])^2 / (vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
     Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-    "AR-CI"
-    b0_CI_AR <- b0_CI_AR_PET
   } else if (method == 2) {
     "MAIVE-PEESE"
     beta <- peese$coefficients[1]
@@ -480,8 +478,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "Hausman-type test"
     Hausman <- (peese$coefficients[1] - peese0$coefficients[1])^2 / (vcovCR(peese, cluster = g, type = type_choice)[1, 1])
     Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-    "AR-CI"
-    b0_CI_AR <- b0_CI_AR_PEESE
   } else if (method == 3) {
     "MAIVE-PET-PEESE"
     beta <- petpeese$coefficients[1]
@@ -501,8 +497,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "Hausman-type test"
     Hausman <- (petpeese$coefficients[1] - petpeese0$coefficients[1])^2 / (vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
     Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-    "AR-CI"
-    b0_CI_AR <- b0_CI_AR_PP
   } else if (method == 4) {
     "MAIVE-EK"
     beta <- ekreg$coefficients[1]
@@ -521,13 +515,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "Hausman-type test" # with variance of MAIVE in denominator (instead of the difference) hence is conservative
     Hausman <- (ekreg$coefficients[1] - ekreg0$coefficients[1])^2 / (vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
     Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-    "AR-CI"
-    b0_CI_AR <- "NA"
-  }
-
-  if (weight == 1 || weight == 2) {
-    "AR-CI"
-    b0_CI_AR <- "NA"
   }
 
   "p-value of test for publication bias / p-hacking based on instrumented FAT"
