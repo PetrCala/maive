@@ -50,6 +50,9 @@ manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed 
   ))
 }
 
+PET_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs
+PEESE_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs^2
+
 # end of manual_wild_cluster_boot_se function
 compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
   # Beta estimates and robust SEs
@@ -410,9 +413,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     if (AR != 1 || method == 4 || weight == 1 || weight == 2) {
       return(list(b0_CI = "NA", b1_CI = "NA"))
     }
-
-    PET_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs
-    PEESE_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs^2
 
     cfg <- switch(as.character(method),
       "1" = list(model = fatpet, adjust_fun = PET_adjust),
