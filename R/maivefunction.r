@@ -92,31 +92,35 @@ compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_
   compute_AR_stats_vectorized <- function(b0_vals, b1_vals) {
     n_b0 <- length(b0_vals)
     n_b1 <- length(b1_vals)
+    K <- n_b0 * n_b1
 
-    # Create matrices for vectorized computation
-    b0_mat <- matrix(b0_vals, nrow = n_b0, ncol = n_b1, byrow = FALSE)
-    b1_mat <- matrix(b1_vals, nrow = n_b0, ncol = n_b1, byrow = TRUE)
+    # Grid of (b0, b1) pairs — K columns
+    grid <- expand.grid(b0 = b0_vals, b1 = b1_vals) # K rows
 
-    # Vectorized adjustment (works for both PET and PEESE)
-    if (identical(adjust_fun, PET_adjust)) {
-      # PET: bs - b0 - b1 * sebs
-      bs_star_mat <- bs - b0_mat - b1_mat * sebs
+    # Replicate vectors into M × K matrices
+    bs_mat <- matrix(rep(bs, times = K), nrow = M, ncol = K)
+    se_mat <- if (identical(adjust_fun, PET_adjust)) {
+      matrix(rep(sebs, times = K), nrow = M, ncol = K)
     } else {
-      # PEESE: bs - b0 - b1 * sebs^2
-      bs_star_mat <- bs - b0_mat - b1_mat * sebs_sq
+      matrix(rep(sebs_sq, times = K), nrow = M, ncol = K)
     }
+    b0_mat <- matrix(rep(grid$b0, each = M), nrow = M, ncol = K)
+    b1_mat <- matrix(rep(grid$b1, each = M), nrow = M, ncol = K)
 
-    # Vectorized AR statistic computation
+    # Vectorized adjustment (PET or PEESE)
+    bs_star_mat <- bs_mat - b0_mat - b1_mat * se_mat # M × K
+
+    # AR statistic pieces (M × M) %*% (M × K) -> (M × K)
     PZ_bs_star <- PZ %*% bs_star_mat
     MZ_bs_star <- MZ %*% bs_star_mat
 
-    num <- colSums(bs_star_mat * PZ_bs_star)
-    denom <- colSums(bs_star_mat * MZ_bs_star)
-
-    # Avoid division by zero
+    num <- colSums(bs_star_mat * PZ_bs_star) # length K
+    denom <- colSums(bs_star_mat * MZ_bs_star) # length K
     denom[abs(denom) < 1e-10] <- 1e-10
 
-    stats <- (M - 2) * num / denom
+    stats <- (M - 2) * num / denom # length K
+
+    # Reshape back to n_b0 × n_b1 surface
     matrix(stats, nrow = n_b0, ncol = n_b1)
   }
 
