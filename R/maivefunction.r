@@ -434,8 +434,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     beta0 <- fatpet0$coefficients[1]
     beta0se <- sqrt(vcovCR(fatpet0, cluster = g, type = type_choice)[1, 1])
     if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = fatpet0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result$boot_se[1]
+      boot_result0 <- manual_wild_cluster_boot_se(model = fatpet0, data = dat, cluster_var = "g", B = 500)
+      beta0se <- boot_result0$boot_se[1]
     }
     "Hausman-type test"
     Hausman <- (fatpet$coefficients[1] - fatpet0$coefficients[1])^2 / (vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
@@ -454,8 +454,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     beta0 <- peese0$coefficients[1]
     beta0se <- sqrt(vcovCR(peese0, cluster = g, type = type_choice)[1, 1])
     if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = peese0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result$boot_se[1]
+      boot_result0 <- manual_wild_cluster_boot_se(model = peese0, data = dat, cluster_var = "g", B = 500)
+      beta0se <- boot_result0$boot_se[1]
     }
     "Hausman-type test"
     Hausman <- (peese$coefficients[1] - peese0$coefficients[1])^2 / (vcovCR(peese, cluster = g, type = type_choice)[1, 1])
@@ -475,8 +475,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     beta0 <- petpeese0$coefficients[1]
     beta0se <- sqrt(vcovCR(petpeese0, cluster = g, type = type_choice)[1, 1])
     if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = petpeese0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result$boot_se[1]
+      boot_result0 <- manual_wild_cluster_boot_se(model = petpeese0, data = dat, cluster_var = "g", B = 500)
+      beta0se <- boot_result0$boot_se[1]
     }
     "Hausman-type test"
     Hausman <- (petpeese$coefficients[1] - petpeese0$coefficients[1])^2 / (vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
@@ -495,8 +495,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     beta0 <- ekreg0$coefficients[1]
     beta0se <- sqrt(vcovCR(ekreg0, cluster = g, type = type_choice)[1, 1])
     if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = ekreg0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result$boot_se[1]
+      boot_result0 <- manual_wild_cluster_boot_se(model = ekreg0, data = dat, cluster_var = "g", B = 500)
+      beta0se <- boot_result0$boot_se[1]
     }
     "Hausman-type test" # with variance of MAIVE in denominator (instead of the difference) hence is conservative
     Hausman <- (ekreg$coefficients[1] - ekreg0$coefficients[1])^2 / (vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
