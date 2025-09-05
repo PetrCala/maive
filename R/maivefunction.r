@@ -1,147 +1,3 @@
-manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed = 123) {
-  set.seed(seed)
-
-  # Extract residuals and fitted values
-  resids <- residuals(model)
-  fitted_vals <- fitted(model)
-
-  # Get cluster IDs
-  clusters <- unique(as.character(data[[cluster_var]]))
-  G <- length(clusters)
-
-  # Coefficient names
-  coef_names <- names(coef(model))
-  k <- length(coef_names)
-
-  # Matrix to store bootstrap coefficients
-  boot_coefs <- matrix(NA, nrow = B, ncol = k)
-  colnames(boot_coefs) <- coef_names
-
-  # Loop over bootstrap replications
-  for (b in 1:B) {
-    # Draw Rademacher multipliers per cluster
-    u_g <- sample(c(-1, 1), size = G, replace = TRUE)
-    names(u_g) <- as.character(clusters)
-
-    # Create bootstrap outcome
-    data$y_boot <- fitted_vals + resids * u_g[as.character(data[[cluster_var]])]
-
-    # Refit the same model formula on bootstrap sample
-    form_boot <- update(formula(model), y_boot ~ .)
-    fit_boot <- lm(form_boot, data = data)
-
-    # Store bootstrap coefficients
-    boot_coefs[b, ] <- coef(fit_boot)
-  }
-
-  # Compute bootstrap SEs
-  boot_se <- apply(boot_coefs, 2, sd)
-
-  # Compute bootstrap percentile CI
-  alpha <- 0.05
-  boot_ci <- t(apply(boot_coefs, 2, function(x) quantile(x, probs = c(alpha / 2, 1 - alpha / 2))))
-  colnames(boot_ci) <- c("lower", "upper")
-
-  # Return list
-  return(list(
-    boot_se = boot_se,
-    boot_ci = boot_ci,
-    boot_coefs = boot_coefs
-  ))
-}
-
-PET_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs
-PEESE_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs^2
-
-# end of manual_wild_cluster_boot_se function
-compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
-  # Beta estimates and robust SEs
-  beta0 <- model$coefficients[1]
-  beta0se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[1, 1])
-  beta1 <- model$coefficients[2]
-  beta1se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[2, 2])
-
-  # Adaptive grid resolution based on dataset size
-  M <- length(bs)
-  base_resolution <- min(50, max(20, round(sqrt(M))))
-
-  # Tighter bounds for better performance
-  l0 <- beta0 - 3 * beta0se
-  u0 <- beta0 + 3 * beta0se
-  l1 <- beta1 - 3 * beta1se
-  u1 <- beta1 + 3 * beta1se
-
-  # Adaptive grid resolution
-  pr0 <- max(base_resolution, round(base_resolution * 10 / (u0 - l0)))
-  pr1 <- max(base_resolution, round(base_resolution * 10 / (u1 - l1)))
-
-  b0_grid <- seq(l0, u0, length.out = min(pr0, 200))
-  b1_grid <- seq(l1, u1, length.out = min(pr1, 200))
-
-  # Pre-compute matrices (reused across all grid points)
-  ones_vec <- rep(1, M)
-  Z <- cbind(ones_vec, invNs)
-  ZtZ_inv <- solve(t(Z) %*% Z)
-  PZ <- Z %*% ZtZ_inv %*% t(Z)
-  MZ <- diag(M) - PZ
-
-  # Pre-compute sebs powers for adjustment functions
-  sebs_sq <- sebs^2
-
-  # Vectorized computation using outer product
-  compute_AR_stats_vectorized <- function(b0_vals, b1_vals) {
-    n_b0 <- length(b0_vals)
-    n_b1 <- length(b1_vals)
-    K <- n_b0 * n_b1
-
-    # Grid of (b0, b1) pairs — K columns
-    grid <- expand.grid(b0 = b0_vals, b1 = b1_vals) # K rows
-
-    # Replicate vectors into M × K matrices
-    bs_mat <- matrix(rep(bs, times = K), nrow = M, ncol = K)
-    se_mat <- if (identical(adjust_fun, PET_adjust)) {
-      matrix(rep(sebs, times = K), nrow = M, ncol = K)
-    } else {
-      matrix(rep(sebs_sq, times = K), nrow = M, ncol = K)
-    }
-    b0_mat <- matrix(rep(grid$b0, each = M), nrow = M, ncol = K)
-    b1_mat <- matrix(rep(grid$b1, each = M), nrow = M, ncol = K)
-
-    # Vectorized adjustment (PET or PEESE)
-    bs_star_mat <- bs_mat - b0_mat - b1_mat * se_mat # M × K
-
-    # AR statistic pieces (M × M) %*% (M × K) -> (M × K)
-    PZ_bs_star <- PZ %*% bs_star_mat
-    MZ_bs_star <- MZ %*% bs_star_mat
-
-    num <- colSums(bs_star_mat * PZ_bs_star) # length K
-    denom <- colSums(bs_star_mat * MZ_bs_star) # length K
-    denom[abs(denom) < 1e-10] <- 1e-10
-
-    stats <- (M - 2) * num / denom # length K
-
-    # Reshape back to n_b0 × n_b1 surface
-    matrix(stats, nrow = n_b0, ncol = n_b1)
-  }
-
-  AR_stats <- compute_AR_stats_vectorized(b0_grid, b1_grid)
-
-  # Check which are accepted
-  AR_accept <- AR_stats < 5.99
-
-  b0_CI_all <- b0_grid[rowSums(AR_accept) > 0]
-  b1_CI_all <- b1_grid[colSums(AR_accept) > 0]
-
-  b0_CI <- c(b0_CI_all[1], b0_CI_all[length(b0_CI_all)])
-  b1_CI <- c(b1_CI_all[1], b1_CI_all[length(b1_CI_all)])
-
-  list(
-    b0_CI = round(b0_CI, 3),
-    b1_CI = round(b1_CI, 3)
-  )
-}
-
-
 #' R code for MAIVE
 #'
 #' R package for MAIVE: "Spurious Precision in Meta-Analysis of Observational Research" by
@@ -181,7 +37,6 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   # wild bootstrap
   # clustered (weights drawn per cluster, not per observation)
   # with Rademacher distribution (i.e., ±1 with 0.5 probability each)
-
 
   methods <- c("PET", "PEESE", "PET-PEESE", "EK")
   instrumented <- c("not instrumented", "instrumented")
@@ -439,91 +294,74 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
   ar_ci_res <- get_ar_ci_res()
 
-  boot_result <- NULL # Initialize the object
-
-  "RESULTS"
-  if (method == 1) {
-    "MAIVE-FAT-PET"
-    beta <- fatpet$coefficients[1]
-    betase <- sqrt(vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = fatpet, data = dat, cluster_var = "g", B = 500)
-      betase <- boot_result$boot_se[1]
-    }
-    "Standard FAT-PET"
-    beta0 <- fatpet0$coefficients[1]
-    beta0se <- sqrt(vcovCR(fatpet0, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result0 <- manual_wild_cluster_boot_se(model = fatpet0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result0$boot_se[1]
-    }
-    "Hausman-type test"
-    Hausman <- (fatpet$coefficients[1] - fatpet0$coefficients[1])^2 / (vcovCR(fatpet, cluster = g, type = type_choice)[1, 1])
-    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-  } else if (method == 2) {
-    "MAIVE-PEESE"
-    beta <- peese$coefficients[1]
-    betase <- sqrt(vcovCR(peese, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = peese, data = dat, cluster_var = "g", B = 500)
-      betase <- boot_result$boot_se[1]
-    }
-    "Standard PEESE"
-    beta0 <- peese0$coefficients[1]
-    beta0se <- sqrt(vcovCR(peese0, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result0 <- manual_wild_cluster_boot_se(model = peese0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result0$boot_se[1]
-    }
-    "Hausman-type test"
-    Hausman <- (peese$coefficients[1] - peese0$coefficients[1])^2 / (vcovCR(peese, cluster = g, type = type_choice)[1, 1])
-    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-  } else if (method == 3) {
-    "MAIVE-PET-PEESE"
-    beta <- petpeese$coefficients[1]
-    betase <- sqrt(vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = petpeese, data = dat, cluster_var = "g", B = 500)
-      betase <- boot_result$boot_se[1]
-    }
-
-    "Standard PET-PEESE"
-    beta0 <- petpeese0$coefficients[1]
-    beta0se <- sqrt(vcovCR(petpeese0, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result0 <- manual_wild_cluster_boot_se(model = petpeese0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result0$boot_se[1]
-    }
-    "Hausman-type test"
-    Hausman <- (petpeese$coefficients[1] - petpeese0$coefficients[1])^2 / (vcovCR(petpeese, cluster = g, type = type_choice)[1, 1])
-    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-  } else if (method == 4) {
-    "MAIVE-EK"
-    beta <- ekreg$coefficients[1]
-    betase <- sqrt(vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result <- manual_wild_cluster_boot_se(model = ekreg, data = dat, cluster_var = "g", B = 500)
-      betase <- boot_result$boot_se[1]
-    }
-    "Standard EK"
-    beta0 <- ekreg0$coefficients[1]
-    beta0se <- sqrt(vcovCR(ekreg0, cluster = g, type = type_choice)[1, 1])
-    if (SE == 3) {
-      boot_result0 <- manual_wild_cluster_boot_se(model = ekreg0, data = dat, cluster_var = "g", B = 500)
-      beta0se <- boot_result0$boot_se[1]
-    }
-    "Hausman-type test" # with variance of MAIVE in denominator (instead of the difference) hence is conservative
-    Hausman <- (ekreg$coefficients[1] - ekreg0$coefficients[1])^2 / (vcovCR(ekreg, cluster = g, type = type_choice)[1, 1])
-    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-  }
-
   "p-value of test for publication bias / p-hacking based on instrumented FAT"
-  # Dynamic pb_p based on the actual chosen model
   model_list <- list(fatpet, peese, petpeese, ekreg)
   selected_model <- model_list[[method]]
   pb_p <- summary(selected_model)$coefficients[2, 4]
   slope_coef <- round(as.numeric(summary(selected_model)$coefficients[2, 1]), 3)
 
-  my_list <- list("beta" = round(beta, 3), "SE" = round(betase, 3), "F-test" = F_hac, "beta_standard" = round(beta0, 3), "SE_standard" = round(beta0se, 3), "Hausman" = round(Hausman, 3), "Chi2" = round(Chi2, 3), "SE_instrumented" = sebs2fit1^(1 / 2), "AR_CI" = ar_ci_res$b0_CI, "pub bias p-value" = round(pb_p, 3), "is_quadratic_fit" = is_quadratic_fit, "boot_result" = boot_result, "slope_coef" = slope_coef)
-  return(my_list)
+  get_se <- function(model, SE, dat, g, type_choice) {
+    if (isTRUE(SE == 3)) {
+      boot <- manual_wild_cluster_boot_se(
+        model = model,
+        data = dat,
+        cluster_var = "g",
+        B = 500
+      )
+      list(se = boot$boot_se[1], boot_result = boot)
+    } else {
+      v11 <- vcovCR(model, cluster = g, type = type_choice)[1, 1]
+      list(se = sqrt(v11), boot_result = NULL)
+    }
+  }
+
+  v11 <- function(model, g, type_choice) vcovCR(model, cluster = g, type = type_choice)[1, 1]
+
+  build_maive_results <- function(method,
+                                  SE, dat, g, type_choice,
+                                  ar_ci_res, F_hac, sebs2fit1, pb_p,
+                                  is_quadratic_fit, slope_coef) {
+    # Map method -> (MAIVE model, Standard model, labels)
+    cfg_map <- list(
+      "1" = list(maive = fatpet, std = fatpet0, maive_label = "MAIVE-FAT-PET", std_label = "Standard FAT-PET"),
+      "2" = list(maive = peese, std = peese0, maive_label = "MAIVE-PEESE", std_label = "Standard PEESE"),
+      "3" = list(maive = petpeese, std = petpeese0, maive_label = "MAIVE-PET-PEESE", std_label = "Standard PET-PEESE"),
+      "4" = list(maive = ekreg, std = ekreg0, maive_label = "MAIVE-EK", std_label = "Standard EK")
+    )
+
+    cfg <- cfg_map[[as.character(method)]]
+    if (is.null(cfg)) stop("Invalid method")
+
+    # MAIVE beta & SE (robust or WCR bootstrap)
+    beta <- cfg$maive$coefficients[1]
+    se_ma <- get_se(cfg$maive, SE, dat, g, type_choice)
+    betase <- se_ma$se
+    boot_result <- se_ma$boot_result
+
+    # Standard beta & SE
+    beta0 <- cfg$std$coefficients[1]
+    se_st <- get_se(cfg$std, SE, dat, g, type_choice)
+    beta0se <- se_st$se
+
+    # Hausman-type test (conservative: denom = Var(beta_MAIVE))
+    Hausman <- (cfg$maive$coefficients[1] - cfg$std$coefficients[1])^2 /
+      v11(cfg$maive, g, type_choice)
+    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
+
+    list(
+      "beta"              = round(beta, 3),
+      "SE"                = round(betase, 3),
+      "F-test"            = F_hac,
+      "beta_standard"     = round(beta0, 3),
+      "SE_standard"       = round(beta0se, 3),
+      "Hausman"           = round(Hausman, 3),
+      "Chi2"              = round(Chi2, 3),
+      "SE_instrumented"   = sebs2fit1^(1 / 2),
+      "AR_CI"             = ar_ci_res$b0_CI, # keep as-is per your code
+      "pub bias p-value"  = round(pb_p, 3),
+      "is_quadratic_fit"  = is_quadratic_fit,
+      "boot_result"       = boot_result, # NULL unless SE == 3
+      "slope_coef"        = slope_coef
+    )
+  }
 }
