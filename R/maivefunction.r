@@ -317,51 +317,46 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
   v11 <- function(model, g, type_choice) vcovCR(model, cluster = g, type = type_choice)[1, 1]
 
-  build_maive_results <- function(method,
-                                  SE, dat, g, type_choice,
-                                  ar_ci_res, F_hac, sebs2fit1, pb_p,
-                                  is_quadratic_fit, slope_coef) {
-    # Map method -> (MAIVE model, Standard model, labels)
-    cfg_map <- list(
-      "1" = list(maive = fatpet, std = fatpet0, maive_label = "MAIVE-FAT-PET", std_label = "Standard FAT-PET"),
-      "2" = list(maive = peese, std = peese0, maive_label = "MAIVE-PEESE", std_label = "Standard PEESE"),
-      "3" = list(maive = petpeese, std = petpeese0, maive_label = "MAIVE-PET-PEESE", std_label = "Standard PET-PEESE"),
-      "4" = list(maive = ekreg, std = ekreg0, maive_label = "MAIVE-EK", std_label = "Standard EK")
-    )
+  # Map method -> (MAIVE model, Standard model, labels)
+  cfg_map <- list(
+    "1" = list(maive = fatpet, std = fatpet0, maive_label = "MAIVE-FAT-PET", std_label = "Standard FAT-PET"),
+    "2" = list(maive = peese, std = peese0, maive_label = "MAIVE-PEESE", std_label = "Standard PEESE"),
+    "3" = list(maive = petpeese, std = petpeese0, maive_label = "MAIVE-PET-PEESE", std_label = "Standard PET-PEESE"),
+    "4" = list(maive = ekreg, std = ekreg0, maive_label = "MAIVE-EK", std_label = "Standard EK")
+  )
 
-    cfg <- cfg_map[[as.character(method)]]
-    if (is.null(cfg)) stop("Invalid method")
+  cfg <- cfg_map[[as.character(method)]]
+  if (is.null(cfg)) stop("Invalid method")
 
-    # MAIVE beta & SE (robust or WCR bootstrap)
-    beta <- cfg$maive$coefficients[1]
-    se_ma <- get_se(cfg$maive, SE, dat, g, type_choice)
-    betase <- se_ma$se
-    boot_result <- se_ma$boot_result
+  # MAIVE beta & SE (robust or WCR bootstrap)
+  beta <- cfg$maive$coefficients[1]
+  se_ma <- get_se(cfg$maive, SE, dat, g, type_choice)
+  betase <- se_ma$se
+  boot_result <- se_ma$boot_result
 
-    # Standard beta & SE
-    beta0 <- cfg$std$coefficients[1]
-    se_st <- get_se(cfg$std, SE, dat, g, type_choice)
-    beta0se <- se_st$se
+  # Standard beta & SE
+  beta0 <- cfg$std$coefficients[1]
+  se_st <- get_se(cfg$std, SE, dat, g, type_choice)
+  beta0se <- se_st$se
 
-    # Hausman-type test (conservative: denom = Var(beta_MAIVE))
-    Hausman <- (cfg$maive$coefficients[1] - cfg$std$coefficients[1])^2 /
-      v11(cfg$maive, g, type_choice)
-    Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
+  # Hausman-type test (conservative: denom = Var(beta_MAIVE))
+  Hausman <- (cfg$maive$coefficients[1] - cfg$std$coefficients[1])^2 /
+    v11(cfg$maive, g, type_choice)
+  Chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
 
-    list(
-      "beta"              = round(beta, 3),
-      "SE"                = round(betase, 3),
-      "F-test"            = F_hac,
-      "beta_standard"     = round(beta0, 3),
-      "SE_standard"       = round(beta0se, 3),
-      "Hausman"           = round(Hausman, 3),
-      "Chi2"              = round(Chi2, 3),
-      "SE_instrumented"   = sebs2fit1^(1 / 2),
-      "AR_CI"             = ar_ci_res$b0_CI, # keep as-is per your code
-      "pub bias p-value"  = round(pb_p, 3),
-      "is_quadratic_fit"  = is_quadratic_fit,
-      "boot_result"       = boot_result, # NULL unless SE == 3
-      "slope_coef"        = slope_coef
-    )
-  }
+  list(
+    "beta"              = round(beta, 3),
+    "SE"                = round(betase, 3),
+    "F-test"            = F_hac,
+    "beta_standard"     = round(beta0, 3),
+    "SE_standard"       = round(beta0se, 3),
+    "Hausman"           = round(Hausman, 3),
+    "Chi2"              = round(Chi2, 3),
+    "SE_instrumented"   = sebs2fit1^(1 / 2),
+    "AR_CI"             = ar_ci_res$b0_CI, # keep as-is per your code
+    "pub bias p-value"  = round(pb_p, 3),
+    "is_quadratic_fit"  = is_quadratic_fit,
+    "boot_result"       = boot_result, # NULL unless SE == 3
+    "slope_coef"        = slope_coef
+  )
 }
