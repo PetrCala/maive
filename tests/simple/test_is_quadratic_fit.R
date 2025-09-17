@@ -4,7 +4,7 @@ suppressPackageStartupMessages({
   library(sandwich)
 })
 
-source('R/maivefunction.r')
+source("R/maivefunction.r")
 
 # Helper to run MAIVE with common options
 run_maive <- function(data, method) {
@@ -27,10 +27,10 @@ pet_dat <- data.frame(
 )
 pet_res <- run_maive(pet_dat, method = 1)
 if (!identical(pet_res$is_quadratic_fit$slope_type, "linear")) {
-  stop('PET slope type should be linear')
+  stop("PET slope type should be linear")
 }
 if (!is.numeric(pet_res$slope_coef)) {
-  stop('PET slope coefficient should be numeric')
+  stop("PET slope coefficient should be numeric")
 }
 
 # EK without kink should be linear and have numeric slope coefficient
@@ -41,13 +41,13 @@ ek_linear_dat <- data.frame(
 )
 ek_linear_res <- suppressWarnings(run_maive(ek_linear_dat, method = 4))
 if (!identical(ek_linear_res$is_quadratic_fit$slope_type, "linear")) {
-  stop('EK without kink should be linear')
+  stop("EK without kink should be linear")
 }
 if (!is.null(ek_linear_res$is_quadratic_fit$slope_detail)) {
-  stop('EK without kink should not report slope detail')
+  stop("EK without kink should not report slope detail")
 }
 if (!is.numeric(ek_linear_res$slope_coef)) {
-  stop('EK without kink slope should be numeric')
+  stop("EK without kink slope should be numeric")
 }
 
 # EK with kink should report kink detail and a list for the slope coefficient
@@ -59,16 +59,16 @@ ek_kink_dat <- data.frame(
 )
 ek_kink_res <- suppressWarnings(run_maive(ek_kink_dat, method = 4))
 if (!identical(ek_kink_res$is_quadratic_fit$slope_type, "kinked")) {
-  stop('EK with kink should report kinked slope behaviour')
+  stop("EK with kink should report kinked slope behaviour")
 }
 if (!is.list(ek_kink_res$slope_coef)) {
-  stop('EK kink slope should be reported as a list')
+  stop("EK kink slope should be reported as a list")
 }
-if (!all(c('kink_effect', 'kink_location') %in% names(ek_kink_res$slope_coef))) {
-  stop('EK kink slope list should contain kink details')
+if (!all(c("kink_effect", "kink_location") %in% names(ek_kink_res$slope_coef))) {
+  stop("EK kink slope list should contain kink details")
 }
 if (is.null(ek_kink_res$is_quadratic_fit$slope_detail)) {
-  stop('EK kink should expose slope detail information')
+  stop("EK kink should expose slope detail information")
 }
 
-cat('All simple MAIVE tests passed.\n')
+cat("All simple MAIVE tests passed.\n")
