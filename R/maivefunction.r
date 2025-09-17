@@ -37,7 +37,7 @@
 #'   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
 #'   \item egger_coef: Egger Coefficient (PET estimate)
 #'   \item egger_se: Egger Standard Error (PET standard error)
-#'   \item is_quadratic_fit: Is quadratic fit
+#'   \item is_quadratic_fit: Details on quadratic selection and slope behaviour
 #'   \item boot_result: Boot result
 #'   \item slope_coef: Slope coefficient
 #' }
@@ -82,9 +82,18 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   alpha_s <- 0.05
 
   # create Dummies from studyid
-  df <- data.frame(studyid)
-  D <- to.dummy(df, "studyid")
-  D <- D - matrix(colMeans(D), nrow = M, ncol = size(D)[2], byrow = TRUE)
+  build_dummy_matrix <- function(values) {
+    if (exists("to.dummy", mode = "function")) {
+      to.dummy(data.frame(studyid = values), "studyid")
+    } else {
+      f <- factor(values)
+      mm <- stats::model.matrix(~ f - 1)
+      colnames(mm) <- paste0("studyid_", levels(f))
+      mm
+    }
+  }
+  D <- build_dummy_matrix(studyid)
+  D <- D - matrix(colMeans(D), nrow = M, ncol = ncol(D), byrow = TRUE)
   D <- D[, 1:(dim(D)[2] - 1)]
 
   # g=studyid if clustered and g=(1:M)' if not clustered (gives heteroskedastic robust SE)
@@ -173,9 +182,9 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
 
 
   # ---- PET-PEESE selection (uses standard OLS SEs for the intercept test)
-  is_quadratic_fit <- abs(coef(fatpet)[1] / sqrt(vcov(fatpet)[1, 1])) >
+  quadratic_decision <- abs(coef(fatpet)[1] / sqrt(vcov(fatpet)[1, 1])) >
     qt(1 - alpha_s / 2, M - ncol(X))
-  petpeese <- if (is_quadratic_fit) peese else fatpet
+  petpeese <- if (quadratic_decision) peese else fatpet
 
   is_quadratic_fit0 <- abs(coef(fatpet0)[1] / sqrt(vcov(fatpet0)[1, 1])) >
     qt(1 - alpha_s / 2, M - ncol(X0))
@@ -207,12 +216,15 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   }
 
   # EK - MAIVE
-  if (a0 > min(x) && a0 < max(x)) {
+  ek_structure <- "intercept"
+  if (!is.na(a0) && a0 > min(x) && a0 < max(x)) {
     xx_w <- (x - a0) * (x > a0) / w
     ekreg <- lm(y ~ 0 + cD + xx_w)
-  } else if (a0 < min(x)) {
+    ek_structure <- "kink"
+  } else if (!is.na(a0) && a0 < min(x)) {
     x_w <- x / w
     ekreg <- lm(y ~ 0 + cD + x_w)
+    ek_structure <- "linear"
   } else {
     ekreg <- lm(y ~ 0 + cD)
   }
@@ -258,9 +270,75 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   }
 
   # ---------- Map: which model is “selected” for reporting
-  model_list <- list(fatpet, peese, petpeese, ekreg)
-  selected_model <- model_list[[method]]
-  slope_coef <- round(as.numeric(coef(selected_model)[2]), 3)
+  slope_info <- switch(as.character(method),
+    "1" = list(
+      type = "linear",
+      coefficient = round(as.numeric(coef(fatpet)[2]), 3),
+      detail = NULL
+    ),
+    "2" = list(
+      type = "quadratic",
+      coefficient = round(as.numeric(coef(peese)[2]), 3),
+      detail = NULL
+    ),
+    "3" = if (identical(petpeese, peese)) {
+      list(
+        type = "quadratic",
+        coefficient = round(as.numeric(coef(peese)[2]), 3),
+        detail = NULL
+      )
+    } else {
+      list(
+        type = "linear",
+        coefficient = round(as.numeric(coef(fatpet)[2]), 3),
+        detail = NULL
+      )
+    },
+    "4" = {
+      if (ek_structure == "kink") {
+        kink_effect <- round(as.numeric(tail(coef(ekreg), 1)), 3)
+        kink_location <- as.numeric(round(a0, 3))
+        list(
+          type = "kinked",
+          coefficient = list(
+            kink_effect = kink_effect,
+            kink_location = kink_location
+          ),
+          detail = list(
+            kink_location = kink_location,
+            kink_effect = kink_effect
+          )
+        )
+      } else if (ek_structure == "linear") {
+        list(
+          type = "linear",
+          coefficient = round(as.numeric(tail(coef(ekreg), 1)), 3),
+          detail = NULL
+        )
+      } else {
+        list(
+          type = "linear",
+          coefficient = 0,
+          detail = NULL
+        )
+      }
+    },
+    stop("Invalid method")
+  )
+
+  slope_coef <- slope_info$coefficient
+
+  is_quadratic_summary <- list(
+    quadratic = switch(as.character(method),
+      "1" = FALSE,
+      "2" = TRUE,
+      "3" = isTRUE(quadratic_decision),
+      "4" = FALSE,
+      stop("Invalid method")
+    ),
+    slope_type = slope_info$type,
+    slope_detail = slope_info$detail
+  )
 
   # ---------- PET (“Egger”) outputs that respect user settings
   egger_inf <- infer_coef(fatpet,
@@ -339,7 +417,7 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "pub bias p-value"  = pb_p,
     "egger_coef"        = egger_coef,
     "egger_se"          = egger_se,
-    "is_quadratic_fit"  = is_quadratic_fit,
+    "is_quadratic_fit"  = is_quadratic_summary,
     "boot_result"       = boot_result, # NULL unless SE == 3 and requested for intercept
     "slope_coef"        = slope_coef
   )
