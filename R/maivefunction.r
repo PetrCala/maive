@@ -48,14 +48,13 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
 
 #' @keywords internal
 maive_build_dummy_matrix <- function(values) {
-  if (exists("to.dummy", mode = "function")) {
-    to.dummy(data.frame(studyid = values), "studyid")
-  } else {
-    f <- factor(values)
-    mm <- stats::model.matrix(~ f - 1)
-    colnames(mm) <- paste0("studyid_", levels(f))
-    mm
-  }
+  f <- factor(values)
+  mm <- stats::model.matrix(~ f - 1)
+  colnames(mm) <- paste0("studyid.", levels(f))
+  rownames(mm) <- NULL
+  attr(mm, "assign") <- NULL
+  attr(mm, "contrasts") <- NULL
+  mm
 }
 
 #' @keywords internal
