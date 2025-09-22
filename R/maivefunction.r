@@ -1,47 +1,3 @@
-#' R code for MAIVE
-#'
-#' R package for MAIVE: "Spurious Precision in Meta-Analysis of Observational Research" by
-#' Zuzana Irsova, Pedro Bom, Tomas Havranek, and Heiko Rachinger.
-#'
-#' @param dat Data frame with columns bs, sebs, Ns, study_id (optional).
-#' @param method 1 FAT-PET, 2 PEESE, 3 PET-PEESE, 4 EK.
-#' @param weight 0 no weights, 1 standard weights, 2 adjusted weights.
-#' @param instrument 1 yes, 0 no.
-#' @param studylevel Correlation at study level: 0 none, 1 fixed effects, 2 cluster.
-#' @param SE SE estimator: 0 CR0 (Huber–White), 1 CR1 (Standard empirical correction),
-#' 2 CR2 (Bias-reduced estimator), 3 wild bootstrap.
-#' @param AR Anderson Rubin corrected CI for weak instruments (only for unweighted MAIVE versions
-#' of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.
-#'
-#' @details Data \code{dat} can be imported from an Excel file via:
-#' \code{dat <- read_excel("inputdata.xlsx")} or from a csv file via: \code{dat <- read.csv("inputdata.csv")}
-#' It should contain:
-#' \itemize{
-#'   \item Estimates: bs
-#'   \item Standard errors: sebs
-#'   \item Number of observations: Ns
-#'   \item Optional: study_id
-#' }
-#' Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR.
-#'
-#' @return \itemize{
-#'   \item beta: MAIVE meta-estimate
-#'   \item SE: MAIVE standard error
-#'   \item F-test: heteroskedastic robust F-test of the first step instrumented SEs
-#'   \item beta_standard: point estimate from the method chosen
-#'   \item SE_standard: standard error from the method chosen
-#'   \item Hausman: Hausman type test: comparison between MAIVE and standard version
-#'   \item Chi2: 5% critical value for Hausman test
-#'   \item SE_instrumented: instrumented standard errors
-#'   \item AR_CI: Anderson-Rubin confidence interval for weak instruments
-#'   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
-#'   \item egger_coef: Egger Coefficient (PET estimate)
-#'   \item egger_se: Egger Standard Error (PET standard error)
-#'   \item is_quadratic_fit: Details on quadratic selection and slope behaviour
-#'   \item boot_result: Boot result
-#'   \item slope_coef: Slope coefficient
-#' }
-#'
 #' @keywords internal
 maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   dat <- as.data.frame(dat)
@@ -488,6 +444,50 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
   )
 }
 
+#' R code for MAIVE
+#'
+#' R package for MAIVE: "Spurious Precision in Meta-Analysis of Observational Research" by
+#' Zuzana Irsova, Pedro Bom, Tomas Havranek, and Heiko Rachinger.
+#'
+#' @param dat Data frame with columns bs, sebs, Ns, study_id (optional).
+#' @param method 1 FAT-PET, 2 PEESE, 3 PET-PEESE, 4 EK.
+#' @param weight 0 no weights, 1 standard weights, 2 adjusted weights.
+#' @param instrument 1 yes, 0 no.
+#' @param studylevel Correlation at study level: 0 none, 1 fixed effects, 2 cluster.
+#' @param SE SE estimator: 0 CR0 (Huber–White), 1 CR1 (Standard empirical correction),
+#' 2 CR2 (Bias-reduced estimator), 3 wild bootstrap.
+#' @param AR Anderson Rubin corrected CI for weak instruments (only for unweighted MAIVE versions
+#' of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.
+#'
+#' @details Data \code{dat} can be imported from an Excel file via:
+#' \code{dat <- read_excel("inputdata.xlsx")} or from a csv file via: \code{dat <- read.csv("inputdata.csv")}
+#' It should contain:
+#' \itemize{
+#'   \item Estimates: bs
+#'   \item Standard errors: sebs
+#'   \item Number of observations: Ns
+#'   \item Optional: study_id
+#' }
+#' Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR.
+#'
+#' @return \itemize{
+#'   \item beta: MAIVE meta-estimate
+#'   \item SE: MAIVE standard error
+#'   \item F-test: heteroskedastic robust F-test of the first step instrumented SEs
+#'   \item beta_standard: point estimate from the method chosen
+#'   \item SE_standard: standard error from the method chosen
+#'   \item Hausman: Hausman type test: comparison between MAIVE and standard version
+#'   \item Chi2: 5% critical value for Hausman test
+#'   \item SE_instrumented: instrumented standard errors
+#'   \item AR_CI: Anderson-Rubin confidence interval for weak instruments
+#'   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
+#'   \item egger_coef: Egger Coefficient (PET estimate)
+#'   \item egger_se: Egger Standard Error (PET standard error)
+#'   \item is_quadratic_fit: Details on quadratic selection and slope behaviour
+#'   \item boot_result: Boot result
+#'   \item slope_coef: Slope coefficient
+#' }
+#'
 #' @export
 maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   opts <- maive_validate_inputs(dat, method, weight, instrument, studylevel, SE, AR)
