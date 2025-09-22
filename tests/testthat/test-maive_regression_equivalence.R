@@ -47,6 +47,12 @@ test_that("maive results match baseline fixtures", {
     actual <- do.call(maive, c(list(dat = scenario$data), scenario$args))
     expected <- baseline[[scenario_name]]
 
+    # These keys are not present in the baseline results used
+    # at the time of writing this test, so we drop them here.
+    drop_keys <- c("egger_boot_ci", "egger_ar_ci")
+    actual[drop_keys] <- NULL
+    expected[drop_keys] <- NULL
+
     expect_equal(
       strip_names(actual),
       strip_names(expected),
