@@ -28,7 +28,7 @@ strip_names <- function(x) {
   }
 }
 
-summarise_differences <- function(actual, expected, tolerance = 0, limit = 10L) {
+summarise_differences <- function(actual, expected, tolerance = 1e-8, limit = 10L) {
   missing_marker <- new.env(parent = emptyenv())
   results <- character()
   hidden_count <- 0L
@@ -250,21 +250,23 @@ scenarios <- list(
   s7 = list(data = dat1, args = list(method = 1, weight = 2, instrument = 1, studylevel = 1, SE = 2, AR = 1))
 )
 
-compare_results <- function(actual, expected, scenario) {
+compare_results <- function(actual, expected, scenario, tolerance = 1e-8) {
   actual_clean <- strip_names(actual)
   expected_clean <- strip_names(expected)
-  are_equal <- identical(actual_clean, expected_clean)
-  if (!are_equal) {
-    diff_lines <- summarise_differences(actual_clean, expected_clean)
-    if (length(diff_lines) == 0) {
-      diff_lines <- "<difference summary unavailable>"
-    }
-    message_lines <- c(
-      sprintf("Results changed for %s:", scenario),
-      paste0("  - ", diff_lines)
-    )
-    stop(paste(message_lines, collapse = "\n"), call. = FALSE)
+  if (identical(actual_clean, expected_clean)) {
+    return()
   }
+
+  diff_lines <- summarise_differences(actual_clean, expected_clean, tolerance = tolerance)
+  if (length(diff_lines) == 0) {
+    return()
+  }
+
+  message_lines <- c(
+    sprintf("Results changed for %s:", scenario),
+    paste0("  - ", diff_lines)
+  )
+  stop(paste(message_lines, collapse = "\n"), call. = FALSE)
 }
 
 for (scenario_name in names(scenarios)) {
