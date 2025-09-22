@@ -38,8 +38,7 @@ Imports:
     stats,
     utils,
     clubSandwich,
-    metafor,
-    pracma
+    metafor
 Suggests: 
     testthat,
     knitr,
