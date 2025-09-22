@@ -4,6 +4,8 @@ suppressPackageStartupMessages({
   library(sandwich)
 })
 
+source("R/boot.r")
+source("R/ar.r")
 source("R/maivefunction.r")
 
 # Helper to run MAIVE with common options
