@@ -313,7 +313,7 @@ maive_fit_ek <- function(selection, design, sighats, method) {
 }
 
 #' @keywords internal
-maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choice) {
+maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choice, alpha = 0.05) {
   if (SE == 3L) {
     boot <- manual_wild_cluster_boot_se(
       model = model,
@@ -334,13 +334,72 @@ maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choi
   b <- unname(coef(model)[coef_index])
   t <- as.numeric(b / se)
   p <- 2 * pnorm(-abs(t))
-  list(b = b, se = se, p = p, boot_result = boot_result)
+  ci <- maive_prepare_confidence_interval(
+    model = model,
+    coef_index = coef_index,
+    estimate = b,
+    se = se,
+    boot_result = boot_result,
+    alpha = alpha
+  )
+  list(b = b, se = se, p = p, ci = ci, boot_result = boot_result)
 }
 
 #' @keywords internal
 maive_get_intercept_se <- function(model, SE, data, cluster_var, type_choice) {
   inf <- maive_infer_coef(model, 1L, SE, data, cluster_var, type_choice)
   list(se = inf$se, boot_result = inf$boot_result)
+}
+
+#' @keywords internal
+maive_prepare_confidence_interval <- function(model, coef_index, estimate, se, boot_result, alpha) {
+  if (!is.null(boot_result) && !is.null(boot_result$boot_ci)) {
+    boot_ci <- boot_result$boot_ci
+    coef_names <- names(coef(model))
+    ci_row <- NULL
+    if (!is.null(coef_names) && length(coef_names) >= coef_index) {
+      coef_name <- coef_names[coef_index]
+      if (!is.null(rownames(boot_ci)) && coef_name %in% rownames(boot_ci)) {
+        ci_row <- boot_ci[coef_name, ]
+      }
+    }
+    if (is.null(ci_row)) {
+      ci_row <- boot_ci[coef_index, ]
+    }
+    ci_vals <- as.numeric(ci_row)
+    names(ci_vals) <- c("lower", "upper")
+    ci_vals
+  } else {
+    crit <- stats::qnorm(1 - alpha / 2)
+    ci_vals <- c(estimate - crit * se, estimate + crit * se)
+    names(ci_vals) <- c("lower", "upper")
+    ci_vals
+  }
+}
+
+#' @keywords internal
+maive_compute_egger_ar_ci <- function(opts, fits, prepared, invNs) {
+  if (opts$AR != 1L || opts$weight %in% c(1L, 2L) || opts$instrument == 0L) {
+    return("NA")
+  }
+  if (is.null(fits$fatpet)) {
+    return("NA")
+  }
+  ar_result <- compute_AR_CI_optimized(
+    model = fits$fatpet,
+    adjust_fun = PET_adjust,
+    bs = prepared$bs,
+    sebs = prepared$sebs,
+    invNs = invNs,
+    g = prepared$g,
+    type_choice = opts$type_choice
+  )
+  if (is.null(ar_result$b1_CI) || identical(ar_result$b1_CI, "NA")) {
+    return("NA")
+  }
+  ci_vals <- round(ar_result$b1_CI, 3)
+  names(ci_vals) <- c("lower", "upper")
+  ci_vals
 }
 
 #' @keywords internal
@@ -482,6 +541,8 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
 #'   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
 #'   \item egger_coef: Egger Coefficient (PET estimate)
 #'   \item egger_se: Egger Standard Error (PET standard error)
+#'   \item egger_boot_ci: Confidence interval for the Egger coefficient using the selected resampling scheme
+#'   \item egger_ar_ci: Anderson-Rubin confidence interval for the Egger coefficient (when available)
 #'   \item is_quadratic_fit: Details on quadratic selection and slope behaviour
 #'   \item boot_result: Boot result
 #'   \item slope_coef: Slope coefficient
@@ -507,6 +568,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   slope_summary <- maive_quadratic_summary(opts$method, selection, slope_info)
 
   egger_inf <- maive_infer_coef(fits$fatpet, 2L, opts$SE, prepared$dat, "g", opts$type_choice)
+  egger_boot_ci <- round(egger_inf$ci, 3)
+  egger_ar_ci <- maive_compute_egger_ar_ci(opts, fits, prepared, instrumentation$invNs)
   cfg <- maive_get_config(opts$method, fits, selection, ek)
   if (is.null(cfg$maive) || is.null(cfg$std)) {
     stop("Failed to identify models for the selected method.")
@@ -536,6 +599,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
     "pub bias p-value" = round(egger_inf$p, 3),
     "egger_coef" = round(egger_inf$b, 3),
     "egger_se" = round(egger_inf$se, 3),
+    "egger_boot_ci" = egger_boot_ci,
+    "egger_ar_ci" = egger_ar_ci,
     "is_quadratic_fit" = slope_summary,
     "boot_result" = se_ma$boot_result,
     "slope_coef" = slope_info$coefficient

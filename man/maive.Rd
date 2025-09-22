@@ -37,6 +37,8 @@ of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
   \item egger_coef: Egger Coefficient (PET estimate)
   \item egger_se: Egger Standard Error (PET standard error)
+  \item egger_boot_ci: Confidence interval for the Egger coefficient using the selected resampling scheme
+  \item egger_ar_ci: Anderson-Rubin confidence interval for the Egger coefficient (when available)
   \item is_quadratic_fit: Details on quadratic selection and slope behaviour
   \item boot_result: Boot result
   \item slope_coef: Slope coefficient
