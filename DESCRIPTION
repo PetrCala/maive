@@ -39,8 +39,7 @@ Imports:
     utils,
     clubSandwich,
     metafor,
-    pracma,
-    sandwich
+    pracma
 Suggests: 
     testthat,
     knitr,

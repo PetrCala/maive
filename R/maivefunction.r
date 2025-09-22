@@ -141,7 +141,7 @@ maive_compute_variance_instrumentation <- function(sebs, Ns, g, type_choice, ins
   if (instrument == 0L) {
     F_hac <- "NA"
   } else {
-    V <- vcovCR(varreg1, cluster = g, type = type_choice)
+    V <- clubSandwich::vcovCR(varreg1, cluster = g, type = type_choice)
     F_hac <- unname(round(varreg1$coefficients[dimiv]^2 / V[dimiv, dimiv], 3))
   }
 
@@ -327,7 +327,7 @@ maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choi
     se <- unname(boot$boot_se[coef_index])
     boot_result <- boot
   } else {
-    V <- vcovCR(model, cluster = data[[cluster_var]], type = type_choice)
+    V <- clubSandwich::vcovCR(model, cluster = data[[cluster_var]], type = type_choice)
     se <- unname(sqrt(V[coef_index, coef_index]))
     boot_result <- NULL
   }
@@ -410,7 +410,7 @@ maive_get_config <- function(method, fits, selection, ek) {
 
 #' @keywords internal
 maive_compute_hausman <- function(beta, beta0, model, g, type_choice) {
-  V_maive <- vcovCR(model, cluster = g, type = type_choice)
+  V_maive <- clubSandwich::vcovCR(model, cluster = g, type = type_choice)
   unname((beta - beta0)^2 / V_maive[1, 1])
 }
 

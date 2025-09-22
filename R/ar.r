@@ -8,9 +8,9 @@ PEESE_adjust <- function(bs, b0, b1, sebs) bs - b0 - b1 * sebs^2
 compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_choice) {
   # Beta estimates and robust SEs
   beta0 <- model$coefficients[1]
-  beta0se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[1, 1])
+  beta0se <- sqrt(clubSandwich::vcovCR(model, cluster = g, type = type_choice)[1, 1])
   beta1 <- model$coefficients[2]
-  beta1se <- sqrt(vcovCR(model, cluster = g, type = type_choice)[2, 2])
+  beta1se <- sqrt(clubSandwich::vcovCR(model, cluster = g, type = type_choice)[2, 2])
 
   M <- length(bs)
 
