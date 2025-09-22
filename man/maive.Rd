@@ -25,10 +25,21 @@ of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
 }
 \value{
 \itemize{
-  \item MAIVE meta-estimate and standard error
-  \item Hausman type test: comparison between MAIVE and standard version
-  \item When instrumenting: heteroskedastic robust F-test of the first step instrumented SEs
-  \item p-value of test for publication bias / p-hacking based on instrumented FAT
+  \item beta: MAIVE meta-estimate
+  \item SE: MAIVE standard error
+  \item F-test: heteroskedastic robust F-test of the first step instrumented SEs
+  \item beta_standard: point estimate from the method chosen
+  \item SE_standard: standard error from the method chosen
+  \item Hausman: Hausman type test: comparison between MAIVE and standard version
+  \item Chi2: 5% critical value for Hausman test
+  \item SE_instrumented: instrumented standard errors
+  \item AR_CI: Anderson-Rubin confidence interval for weak instruments
+  \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
+  \item egger_coef: Egger Coefficient (PET estimate)
+  \item egger_se: Egger Standard Error (PET standard error)
+  \item is_quadratic_fit: Details on quadratic selection and slope behaviour
+  \item boot_result: Boot result
+  \item slope_coef: Slope coefficient
 }
 }
 \description{
