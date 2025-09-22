@@ -103,3 +103,17 @@ Econometrics, 235(2), 1625-1653.
 Keane, Michael and Neal, Timothy. 2023. “Instrument strength in IV estimation and inference: A guide to theory and practice”, Journal of Econometrics, 235(2), 1625-1653. <https://doi.org/10.1016/j.jeconom.2022.12.009>
 
 Tipton, E. (2015). Small sample adjustments for robust variance estimation with cluster-correlated data. Psychological Methods, 20(3), 375–389. <https://doi.org/10.1037/met0000019>
+
+---
+
+<p align="center">
+  <a href="https://meta-analysis.cz/maive#cite" target="_blank" rel="noopener">Cite</a>
+  |
+  <a href="https://meta-analysis.cz/" target="_blank" rel="noopener">Applications</a>
+  |
+  <a href="https://github.com/meta-analysis-es/maive" target="_blank" rel="noopener">GitHub</a>
+  |
+  <a href="mailto:heiko.rachinger@uib.es" target="_blank" rel="noopener">Contact</a>
+  |
+  <a href="https://github.com/meta-analysis-es/maive/issues" target="_blank" rel="noopener">Report Issues</a>
+</p>
