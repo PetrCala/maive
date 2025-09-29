@@ -4,7 +4,7 @@
 \alias{maive}
 \title{R code for MAIVE}
 \usage{
-maive(dat, method, weight, instrument, studylevel, SE, AR)
+maive(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L)
 }
 \arguments{
 \item{dat}{Data frame with columns bs, sebs, Ns, study_id (optional).}
@@ -22,6 +22,8 @@ maive(dat, method, weight, instrument, studylevel, SE, AR)
 
 \item{AR}{Anderson Rubin corrected CI for weak instruments (only for unweighted MAIVE versions
 of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
+
+\item{first_stage}{First-stage specification for the variance model: 0 levels, 1 log.}
 }
 \value{
 \itemize{
