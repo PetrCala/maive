@@ -1,5 +1,5 @@
 #' @keywords internal
-maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, SE, AR) {
+maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, SE, AR, first_stage) {
   dat <- as.data.frame(dat)
   if (ncol(dat) < 3) {
     stop("dat must contain at least three columns: bs, sebs, and Ns.")
@@ -18,6 +18,18 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   studylevel <- scalar_int(studylevel, "studylevel")
   SE <- scalar_int(SE, "SE")
   AR <- scalar_int(AR, "AR")
+  if (missing(first_stage)) {
+    first_stage <- 0L
+  }
+
+  if (is.character(first_stage)) {
+    match_idx <- match(tolower(first_stage), c("levels", "log"))
+    if (is.na(match_idx)) {
+      stop("first_stage must be one of 'levels' or 'log'.")
+    }
+    first_stage <- match_idx - 1L
+  }
+  first_stage <- scalar_int(first_stage, "first_stage")
 
   if (!method %in% 1:4) stop("method must be between 1 and 4.")
   if (!weight %in% 0:2) stop("weight must be 0, 1, or 2.")
@@ -25,9 +37,11 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   if (!studylevel %in% 0:3) stop("studylevel must be between 0 and 3.")
   if (!SE %in% 0:3) stop("SE must be between 0 and 3.")
   if (!AR %in% 0:1) stop("AR must be 0 or 1.")
+  if (!first_stage %in% 0:1) stop("first_stage must be 0 (levels) or 1 (log).")
 
   type_map <- c("CR0", "CR1", "CR2")
   type_choice <- if (SE == 3L) "CR0" else type_map[SE + 1L]
+  first_stage_type <- c("levels", "log")[first_stage + 1L]
 
   if (method == 4L || weight %in% c(1L, 2L) || instrument == 0L) {
     AR <- 0L
@@ -42,7 +56,9 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
     SE = SE,
     AR = AR,
     type_choice = type_choice,
-    alpha_s = 0.05
+    alpha_s = 0.05,
+    first_stage = first_stage,
+    first_stage_type = first_stage_type
   )
 }
 
@@ -125,27 +141,48 @@ maive_prepare_data <- function(dat, studylevel) {
 }
 
 #' @keywords internal
-maive_compute_variance_instrumentation <- function(sebs, Ns, g, type_choice, instrument) {
+maive_compute_variance_instrumentation <- function(sebs, Ns, g, type_choice, instrument, first_stage_type) {
   invNs <- 1 / Ns
   sebs2 <- sebs^2
-  Xiv <- cbind(1, invNs)
-  varreg1 <- lm(sebs2 ~ 0 + Xiv)
-  dimiv <- 2L
-  if (varreg1$coefficients[1] < 0) {
-    Xiv <- as.matrix(invNs)
+  if (first_stage_type == "log") {
+    log_sebs2 <- log(sebs2)
+    log_Ns <- log(Ns)
+    Xiv <- cbind(1, log_Ns)
+    varreg1 <- lm(log_sebs2 ~ 0 + Xiv)
+    resid_varreg1 <- stats::residuals(varreg1)
+    weights_varreg1 <- stats::weights(varreg1)
+    if (is.null(weights_varreg1)) {
+      weights_varreg1 <- rep(1, length(resid_varreg1))
+    }
+    smearing <- sum(weights_varreg1 * exp(resid_varreg1)) / sum(weights_varreg1)
+    sebs2fit1 <- exp(stats::fitted(varreg1)) * smearing
+    slope_index <- 2L
+  } else {
+    Xiv <- cbind(1, invNs)
     varreg1 <- lm(sebs2 ~ 0 + Xiv)
-    dimiv <- 1L
-  }
+    dimiv <- 2L
+    if (varreg1$coefficients[1] < 0) {
+      Xiv <- as.matrix(invNs)
+      varreg1 <- lm(sebs2 ~ 0 + Xiv)
+      dimiv <- 1L
+    }
 
-  sebs2fit1 <- fitted(varreg1)
+    sebs2fit1 <- stats::fitted(varreg1)
+    slope_index <- dimiv
+  }
   if (instrument == 0L) {
     F_hac <- "NA"
   } else {
     V <- clubSandwich::vcovCR(varreg1, cluster = g, type = type_choice)
-    F_hac <- unname(round(varreg1$coefficients[dimiv]^2 / V[dimiv, dimiv], 3))
+    F_hac <- unname(round(varreg1$coefficients[slope_index]^2 / V[slope_index, slope_index], 3))
   }
 
-  list(invNs = invNs, sebs2fit1 = sebs2fit1, F_hac = F_hac)
+  list(
+    invNs = invNs,
+    sebs2fit1 = sebs2fit1,
+    F_hac = F_hac,
+    first_stage_model = varreg1
+  )
 }
 
 #' @keywords internal
@@ -468,9 +505,14 @@ maive_get_config <- function(method, fits, selection, ek) {
 }
 
 #' @keywords internal
-maive_compute_hausman <- function(beta, beta0, model, g, type_choice) {
-  V_maive <- clubSandwich::vcovCR(model, cluster = g, type = type_choice)
-  unname((beta - beta0)^2 / V_maive[1, 1])
+maive_compute_hausman <- function(beta_iv, beta_ols, model_iv, model_ols, g, type_choice) {
+  V_iv <- clubSandwich::vcovCR(model_iv, cluster = g, type = type_choice)
+  V_ols <- clubSandwich::vcovCR(model_ols, cluster = g, type = type_choice)
+  var_diff <- V_iv[1, 1] - V_ols[1, 1]
+  if (!is.finite(var_diff) || var_diff <= 0) {
+    return(NA_real_)
+  }
+  unname((beta_iv - beta_ols)^2 / var_diff)
 }
 
 #' @keywords internal
@@ -516,6 +558,7 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
 #' 2 CR2 (Bias-reduced estimator), 3 wild bootstrap.
 #' @param AR Anderson Rubin corrected CI for weak instruments (only for unweighted MAIVE versions
 #' of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.
+#' @param first_stage First-stage specification for the variance model: 0 levels, 1 log.
 #'
 #' @details Data \code{dat} can be imported from an Excel file via:
 #' \code{dat <- read_excel("inputdata.xlsx")} or from a csv file via: \code{dat <- read.csv("inputdata.csv")}
@@ -549,10 +592,10 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
 #' }
 #'
 #' @export
-maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
-  opts <- maive_validate_inputs(dat, method, weight, instrument, studylevel, SE, AR)
+maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L) {
+  opts <- maive_validate_inputs(dat, method, weight, instrument, studylevel, SE, AR, first_stage)
   prepared <- maive_prepare_data(opts$dat, opts$studylevel)
-  instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument)
+  instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
   w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
   x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
@@ -581,7 +624,7 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR) {
   se_ma <- maive_get_intercept_se(cfg$maive, opts$SE, prepared$dat, "g", opts$type_choice)
   se_std <- maive_get_intercept_se(cfg$std, opts$SE, prepared$dat, "g", opts$type_choice)
 
-  hausman <- maive_compute_hausman(beta, beta0, cfg$maive, prepared$g, opts$type_choice)
+  hausman <- maive_compute_hausman(beta, beta0, cfg$maive, cfg$std, prepared$g, opts$type_choice)
   chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
 
   ar_ci_res <- maive_compute_ar_ci(opts, fits, selection, prepared, instrumentation$invNs, opts$type_choice)
