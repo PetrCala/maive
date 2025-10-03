@@ -403,8 +403,7 @@ maive_prepare_confidence_interval <- function(model, coef_index, estimate, se, b
     if (is.null(ci_row)) {
       ci_row <- boot_ci[coef_index, ]
     }
-    ci_vals <- as.numeric(ci_row)
-    names(ci_vals) <- c("lower", "upper")
+    ci_vals <- maive_normalize_ci_bounds(ci_row)
     ci_vals
   } else {
     crit <- stats::qnorm(1 - alpha / 2)
@@ -412,6 +411,22 @@ maive_prepare_confidence_interval <- function(model, coef_index, estimate, se, b
     names(ci_vals) <- c("lower", "upper")
     ci_vals
   }
+}
+
+maive_normalize_ci_bounds <- function(ci_row) {
+  ci_vals <- as.numeric(ci_row)
+  if (length(ci_vals) == 0) {
+    ci_vals <- rep(NA_real_, 2L)
+  } else if (length(ci_vals) == 1) {
+    ci_vals <- rep(ci_vals[1], 2L)
+  } else if (length(ci_vals) > 2) {
+    ci_vals <- ci_vals[seq_len(2L)]
+  }
+  if (length(ci_vals) < 2) {
+    ci_vals <- c(ci_vals, rep(NA_real_, 2L - length(ci_vals)))
+  }
+  names(ci_vals) <- c("lower", "upper")
+  ci_vals
 }
 
 #' @keywords internal
