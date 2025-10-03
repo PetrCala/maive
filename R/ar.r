@@ -114,11 +114,24 @@ compute_AR_CI_optimized <- function(model, adjust_fun, bs, sebs, invNs, g, type_
   # Check which are accepted
   AR_accept <- AR_stats < 5.99
 
+  if (!any(AR_accept)) {
+    return(list(b0_CI = rep(NA_real_, 2L), b1_CI = rep(NA_real_, 2L)))
+  }
+
   b0_CI_all <- b0_grid[rowSums(AR_accept) > 0]
   b1_CI_all <- b1_grid[colSums(AR_accept) > 0]
 
-  b0_CI <- c(b0_CI_all[1], b0_CI_all[length(b0_CI_all)])
-  b1_CI <- c(b1_CI_all[1], b1_CI_all[length(b1_CI_all)])
+  if (length(b0_CI_all) == 0L) {
+    b0_CI <- rep(NA_real_, 2L)
+  } else {
+    b0_CI <- c(min(b0_CI_all), max(b0_CI_all))
+  }
+
+  if (length(b1_CI_all) == 0L) {
+    b1_CI <- rep(NA_real_, 2L)
+  } else {
+    b1_CI <- c(min(b1_CI_all), max(b1_CI_all))
+  }
 
   list(
     b0_CI = round(b0_CI, 3),
