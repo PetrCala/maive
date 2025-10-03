@@ -49,3 +49,24 @@ test_that("maive returns NA Egger AR interval when AR is disabled", {
 
   expect_identical(res$egger_ar_ci, "NA")
 })
+
+test_that("maive returns named NA Egger AR interval when AR grid has no admissible points", {
+  path <- testthat::test_path("fixtures", "egger_ar_no_acceptance.csv")
+  dat <- read.csv(path, stringsAsFactors = FALSE)
+  colnames(dat) <- c("bs", "sebs", "Ns", "study_id")
+
+  res <- maive(
+    dat = dat,
+    method = 3,
+    weight = 0,
+    instrument = 1,
+    studylevel = 3,
+    SE = 0,
+    AR = 1
+  )
+
+  expect_true(is.numeric(res$egger_ar_ci))
+  expect_length(res$egger_ar_ci, 2)
+  expect_true(all(is.na(res$egger_ar_ci)))
+  expect_equal(sort(names(res$egger_ar_ci)), c("lower", "upper"))
+})
