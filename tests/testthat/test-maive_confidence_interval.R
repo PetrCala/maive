@@ -24,7 +24,7 @@ test_that("maive_prepare_confidence_interval handles degenerate bootstrap ci", {
       c(base_args, list(boot_result = list(boot_ci = matrix(0.5, nrow = 1, ncol = 1))))
     )
     expect_identical(names(ci), c("lower", "upper"))
-    expect_equal(ci, rep(0.5, 2))
+    expect_equal(ci, setNames(rep(0.5, 2), c("lower", "upper")))
   })
 
   expect_silent({
@@ -35,6 +35,6 @@ test_that("maive_prepare_confidence_interval handles degenerate bootstrap ci", {
       c(base_args, list(boot_result = list(boot_ci = boot_ci)))
     )
     expect_identical(names(ci), c("lower", "upper"))
-    expect_equal(ci, c(0.2, 0.8))
+    expect_equal(ci, setNames(c(0.2, 0.8), c("lower", "upper")))
   })
 })
