@@ -356,7 +356,7 @@ maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choi
       model = model,
       data = data,
       cluster_var = cluster_var,
-      B = 500
+      B = 999
     )
     if (is.null(boot$boot_se)) {
       stop("Bootstrap helper must return boot_se.")
@@ -385,7 +385,7 @@ maive_infer_coef <- function(model, coef_index, SE, data, cluster_var, type_choi
 #' @keywords internal
 maive_get_intercept_se <- function(model, SE, data, cluster_var, type_choice) {
   inf <- maive_infer_coef(model, 1L, SE, data, cluster_var, type_choice)
-  list(se = inf$se, boot_result = inf$boot_result)
+  list(se = inf$se, ci = inf$ci, boot_result = inf$boot_result)
 }
 
 #' @keywords internal
