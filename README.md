@@ -1,5 +1,6 @@
 MAIVE in R: Instructions to the User
 ================
+
 July 2025
 
 This readme provides instructions on the implementation of the MAIVE
@@ -63,7 +64,7 @@ standard errors, no weights, cluster and wild bootstrap. However, the user can a
 - The weighting (no weights, inverse-variance weights, or MAIVE-adjusted
   weights).
 - Instrumentation of standard errors (yes or no).
-- Accounting for study-level correlation (none, fixed effects, 
+- Accounting for study-level correlation (none, fixed effects,
   cluster-robust methods, or fixed effects and cluster-robust methods).
 - Use CR0 (Huber–White), CR1 (Standard empirical correction)=1, or CR2 (Bias-reduced estimator) for the estimation of the standard errors
 
@@ -85,29 +86,13 @@ The function returns:
 
 - The first stage regresses variances on a constant and inverse sample
   sizes.
-- The Hausman-type test is weighted by the variance of the MAIVE
+- The Hausman-type test compares the MAIVE IV intercept with its OLS counterpart using
+  the difference-in-estimators variance under the selected robust/clustered option.
   estimator (conservative test).
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level
   correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).
-
-## Required Packages
-
-The following R packages might be needed:
-
-- clubSandwich
-- metafor
-- pracma
-- sandwich
-- varhandle
-
-You can install them with:
-
-``` r
-install.packages(c("clubSandwich","metafor","pracma", "sandwich","varhandle"))
-
-```
 
 ## References
 
@@ -116,6 +101,6 @@ estimation and inference: A guide to theory and practice”, Journal of
 Econometrics, 235(2), 1625-1653.
 <https://doi.org/10.1016/j.jeconom.2022.12.009>
 
-Keane, Michael and Neal, Timothy. 2023. “Instrument strength in IV estimation and inference: A guide to theory and practice”, Journal of Econometrics, 235(2), 1625-1653. https://doi.org/10.1016/j.jeconom.2022.12.009
+Keane, Michael and Neal, Timothy. 2023. “Instrument strength in IV estimation and inference: A guide to theory and practice”, Journal of Econometrics, 235(2), 1625-1653. <https://doi.org/10.1016/j.jeconom.2022.12.009>
 
-Tipton, E. (2015). Small sample adjustments for robust variance estimation with cluster-correlated data. Psychological Methods, 20(3), 375–389. https://doi.org/10.1037/met0000019
+Tipton, E. (2015). Small sample adjustments for robust variance estimation with cluster-correlated data. Psychological Methods, 20(3), 375–389. <https://doi.org/10.1037/met0000019>

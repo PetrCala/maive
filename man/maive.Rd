@@ -4,7 +4,7 @@
 \alias{maive}
 \title{R code for MAIVE}
 \usage{
-maive(dat, method, weight, instrument, studylevel, SE, AR)
+maive(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L)
 }
 \arguments{
 \item{dat}{Data frame with columns bs, sebs, Ns, study_id (optional).}
@@ -22,13 +22,28 @@ maive(dat, method, weight, instrument, studylevel, SE, AR)
 
 \item{AR}{Anderson Rubin corrected CI for weak instruments (only for unweighted MAIVE versions
 of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
+
+\item{first_stage}{First-stage specification for the variance model: 0 levels, 1 log.}
 }
 \value{
 \itemize{
-  \item MAIVE meta-estimate and standard error
-  \item Hausman type test: comparison between MAIVE and standard version
-  \item When instrumenting: heteroskedastic robust F-test of the first step instrumented SEs
-  \item p-value of test for publication bias / p-hacking based on instrumented FAT
+  \item beta: MAIVE meta-estimate
+  \item SE: MAIVE standard error
+  \item F-test: heteroskedastic robust F-test of the first step instrumented SEs
+  \item beta_standard: point estimate from the method chosen
+  \item SE_standard: standard error from the method chosen
+  \item Hausman: Hausman type test: comparison between MAIVE and standard version
+  \item Chi2: 5% critical value for Hausman test
+  \item SE_instrumented: instrumented standard errors
+  \item AR_CI: Anderson-Rubin confidence interval for weak instruments
+  \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
+  \item egger_coef: Egger Coefficient (PET estimate)
+  \item egger_se: Egger Standard Error (PET standard error)
+  \item egger_boot_ci: Confidence interval for the Egger coefficient using the selected resampling scheme
+  \item egger_ar_ci: Anderson-Rubin confidence interval for the Egger coefficient (when available)
+  \item is_quadratic_fit: Details on quadratic selection and slope behaviour
+  \item boot_result: Boot result
+  \item slope_coef: Slope coefficient
 }
 }
 \description{

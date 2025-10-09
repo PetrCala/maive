@@ -1,5 +1,6 @@
 MAIVE in R: Instructions to the User
 ================
+
 May 2025
 
 This readme provides instructions on the implementation of the MAIVE
@@ -82,26 +83,13 @@ The function returns:
 
 - The first stage regresses variances on a constant and inverse sample
   sizes.
-- The Hausman-type test is weighted by the variance of the MAIVE
+- The Hausman-type test compares the MAIVE IV intercept with its OLS counterpart using
+  the difference-in-estimators variance under the selected robust/clustered option.
   estimator (conservative test).
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level
   correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).
-
-## Required Packages
-
-The following R packages might be needed:
-
-- pracma
-- varhandle
-- sandwich
-
-You can install them with:
-
-``` r
-install.packages(c("pracma", "varhandle", "sandwich"))
-```
 
 ## References
 

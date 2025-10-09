@@ -2,7 +2,7 @@ Package: MAIVE
 Type: Package
 Title: Meta Analysis Instrumental Variable Estimator
 Encoding: UTF-8
-Version: 0.0.1.0
+Version: 0.0.2.11
 RoxygenNote: 7.3.2
 Authors@R: 
     c(
@@ -36,7 +36,9 @@ Depends:
     R (>= 4.0.0)
 Imports: 
     stats,
-    utils
+    utils,
+    clubSandwich,
+    metafor
 Suggests: 
     testthat,
     knitr,
