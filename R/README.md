@@ -1,10 +1,10 @@
 MAIVE in R: Instructions to the User
 ================
 
-May 2025
+October 2025
 
 This readme provides instructions on the implementation of the MAIVE
-meta-analysis estimator in R: The `meta_maive` package with the
+meta-analysis estimator in R: The `MAIVE` package with the
 `maive.R` function.
 
 Spurious Precision in Meta-Analysis of Observational Research by Zuzana
@@ -20,8 +20,8 @@ using **devtools**:
 
 ``` r
 install.packages("devtools")
-devtools::install_github("meta-analysis-es/meta_maive")
-library(meta_maive)
+devtools::install_github("meta-analysis-es/maive")
+library(MAIVE)
 ```
 
 For help on the `maive.R` function:
@@ -51,33 +51,43 @@ parentheses):
 | method | Meta-analysis method | PET=1, PEESE=2, PET-PEESE=3 (default), EK=4 |
 | weighting | Weighting scheme | No weights=0 (default), Weights=1, Adjusted weights=2 |
 | instrumenting | Instrument standard errors | No=0, Yes=1 (default) |
-| studylevel | Study-level correlation | None=0 (default), Fixed effects=1, Cluster=2 |
-| AR | Anderson-Rubin confidence interval (only for unweighted) | No=0 (default), Yes=1 |
+| studylevel | Study-level correlation | None=0 (default), Fixed effects=1, Cluster=2 (default), Fixed effects and cluster = 3 |
+| SE | SE estimator |  CR0 (Huber–White)=0, CR1 (Standard empirical correction)=1, CR2 (Bias-reduced estimator)=2 , wild bootstrap=3 (default)  |
+| AR | Anderson-Rubin confidence interval (only for unweighted) | No=0,  Yes=1 (default) |
+| first_stage | First-stage specification for the variance model | levels=0 (default), log=1 |
+
 
 ## Description of Default Settings
 
 The default MAIVE meta-estimator is MAIVE-PET-PEESE with instrumented
-standard errors and no weights. However, the user can adjust:
+standard errors and no weights. Cluster SE, wild bootstrap and Anderson-Rubin confidence interval. However, the user can adjust:
 
 - The meta-analysis method (PET, PEESE, PET-PEESE, EK).
 - The weighting (no weights, inverse-variance weights, or MAIVE-adjusted
   weights).
 - Instrumentation of standard errors (yes or no).
-- Accounting for study-level correlation (none, fixed effects, or
-  cluster-robust methods).
+- Accounting for study-level correlation (none, fixed effects, cluster-robust methods, or fixed effects and cluster-robust methods).
+- SE estimator (CR0 (Huber–White), CR1 (Standard empirical correction), CR2 (Bias-reduced estimator) , wild bootstrap)
 
 ## Output
 
 The function returns:
 
 - A MAIVE point estimate and standard error.
-- A point estimate and standard error from the method chosen.
+- Heteroskedastic robust F-test of the first step instrumented SEs
+- Point estimate and standard error from the standard method corresponding to the method chosen
 - A Hausman-type test statistic and a 5% critical value.
 - If instrumenting SEs, a heteroskedasticity-robust F test of the
   first-stage regression.
 - If AR option is chosen, an Anderson-Rubin confidence interval for weak
   instruments.
 - Instrumented standard errors saved as `MAIVE$SE_instrumented`.
+- p-value of test for publication bias / p-hacking based on instrumented FAT
+- Egger Coefficient and standard error (PET estimate)
+- Confidence interval for the Egger coefficient using the selected resampling scheme
+- Anderson-Rubin confidence interval for the Egger coefficient (when available)
+- Details on quadratic selection and slope behaviour
+- Slope coefficient
 
 ## Technical Comments
 
@@ -85,7 +95,6 @@ The function returns:
   sizes.
 - The Hausman-type test compares the MAIVE IV intercept with its OLS counterpart using
   the difference-in-estimators variance under the selected robust/clustered option.
-  estimator (conservative test).
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level
   correlation.
