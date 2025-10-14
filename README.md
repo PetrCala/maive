@@ -92,7 +92,7 @@ The function returns:
 - If no study-id column is provided, the program assumes no study-level
   correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).
-- **WAIVE**: An optional robust extension (`waive()` or `weight=3`) that downweights
+- **WAIVE**: An optional robust extension (`waive()`) that downweights
   studies with spurious precision or extreme outliers. See `?waive` for details.
 
 ## References

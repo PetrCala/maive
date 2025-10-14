@@ -6,10 +6,10 @@ test_that("WAIVE computes exponential-decay weights correctly", {
   )
 
   # Run WAIVE
-  result <- maive(
+  result <- waive(
     dat = dat,
     method = 3,
-    weight = 3,
+    weight = 0,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -58,10 +58,10 @@ test_that("WAIVE works with log first stage", {
     Ns = c(50, 80, 65, 90)
   )
 
-  result_levels <- maive(
+  result_levels <- waive(
     dat = dat,
     method = 1,
-    weight = 3,
+    weight = 0,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -69,10 +69,10 @@ test_that("WAIVE works with log first stage", {
     first_stage = 0
   )
 
-  result_log <- maive(
+  result_log <- waive(
     dat = dat,
     method = 1,
-    weight = 3,
+    weight = 0,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -161,10 +161,10 @@ test_that("WAIVE works with study clusters", {
     study_id = c(1, 1, 2, 2, 3, 3)
   )
 
-  result <- maive(
+  result <- waive(
     dat = dat,
     method = 3,
-    weight = 3,
+    weight = 0,
     instrument = 1,
     studylevel = 2,
     SE = 0,
@@ -184,11 +184,11 @@ test_that("WAIVE disables Anderson-Rubin CI", {
     Ns = c(50, 80, 65, 90)
   )
 
-  # WAIVE with AR=1 should still disable AR
-  result <- maive(
+  # WAIVE with AR=1 should still disable AR (when using weight > 0)
+  result <- waive(
     dat = dat,
     method = 3,
-    weight = 3,
+    weight = 1,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -208,10 +208,10 @@ test_that("WAIVE floor weight prevents zero leverage", {
     Ns = c(50, 60, 55, 30)
   )
 
-  result <- maive(
+  result <- waive(
     dat = dat,
     method = 1,
-    weight = 3,
+    weight = 0,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -242,10 +242,10 @@ test_that("WAIVE matches MAIVE structure with different weights", {
     first_stage = 0
   )
 
-  result_waive <- maive(
+  result_waive <- waive(
     dat = dat,
     method = 3,
-    weight = 3,
+    weight = 2,
     instrument = 1,
     studylevel = 0,
     SE = 0,
@@ -260,7 +260,7 @@ test_that("WAIVE matches MAIVE structure with different weights", {
   expect_false(isTRUE(all.equal(result_maive$beta, result_waive$beta)))
 })
 
-test_that("waive() function works and is consistent with WAIVE methodology", {
+test_that("waive() function works and produces valid results", {
   dat <- data.frame(
     bs = c(0.5, 0.45, 0.55, 0.6),
     sebs = c(0.25, 0.2, 0.22, 0.27),
@@ -268,7 +268,7 @@ test_that("waive() function works and is consistent with WAIVE methodology", {
   )
 
   # Test waive() with unweighted base
-  result_waive_fn <- waive(
+  result <- waive(
     dat = dat,
     method = 3,
     weight = 0,
@@ -279,30 +279,12 @@ test_that("waive() function works and is consistent with WAIVE methodology", {
     first_stage = 0
   )
 
-  # Test maive(weight=3) - uses WAIVE logic
-  result_maive_w3 <- maive(
-    dat = dat,
-    method = 3,
-    weight = 3,
-    instrument = 1,
-    studylevel = 0,
-    SE = 0,
-    AR = 0,
-    first_stage = 0
-  )
-
-  # Both should work and produce valid results
-  expect_true(is.numeric(result_waive_fn$beta))
-  expect_true(is.numeric(result_maive_w3$beta))
-  expect_true(!is.na(result_waive_fn$beta))
-  expect_true(!is.na(result_maive_w3$beta))
-
-  # Should return same structure
-  expect_equal(names(result_waive_fn), names(result_maive_w3))
-
-  # Both should be similar (allow for numerical differences from different code paths)
-  expect_true(abs(result_waive_fn$beta - result_maive_w3$beta) < 0.1)
-  expect_true(abs(result_waive_fn$SE - result_maive_w3$SE) < 0.1)
+  # Should produce valid results
+  expect_true(is.numeric(result$beta))
+  expect_true(!is.na(result$beta))
+  expect_true(is.numeric(result$SE))
+  expect_true(!is.na(result$SE))
+  expect_true(result$SE > 0)
 })
 
 test_that("waive() works with different base weighting schemes", {

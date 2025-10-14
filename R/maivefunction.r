@@ -32,7 +32,7 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   first_stage <- scalar_int(first_stage, "first_stage")
 
   if (!method %in% 1:4) stop("method must be between 1 and 4.")
-  if (!weight %in% 0:3) stop("weight must be 0, 1, 2, or 3.")
+  if (!weight %in% 0:2) stop("weight must be 0, 1, or 2.")
   if (!instrument %in% 0:1) stop("instrument must be 0 or 1.")
   if (!studylevel %in% 0:3) stop("studylevel must be between 0 and 3.")
   if (!SE %in% 0:3) stop("SE must be between 0 and 3.")
@@ -43,7 +43,7 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   type_choice <- if (SE == 3L) "CR0" else type_map[SE + 1L]
   first_stage_type <- c("levels", "log")[first_stage + 1L]
 
-  if (method == 4L || weight %in% c(1L, 2L, 3L) || instrument == 0L) {
+  if (method == 4L || weight %in% c(1L, 2L) || instrument == 0L) {
     AR <- 0L
   }
 
@@ -192,8 +192,6 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1) {
   } else if (weight == 1L) {
     sebs
   } else if (weight == 2L) {
-    sqrt(sebs2fit1)
-  } else if (weight == 3L) {
     sqrt(sebs2fit1)
   } else {
     stop("Invalid weight option.")
@@ -674,7 +672,7 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
 #'
 #' @param dat Data frame with columns bs, sebs, Ns, study_id (optional).
 #' @param method 1 FAT-PET, 2 PEESE, 3 PET-PEESE, 4 EK.
-#' @param weight 0 no weights, 1 standard weights, 2 MAIVE adjusted weights, 3 WAIVE weights.
+#' @param weight 0 no weights, 1 standard weights, 2 MAIVE adjusted weights.
 #' @param instrument 1 yes, 0 no.
 #' @param studylevel Correlation at study level: 0 none, 1 fixed effects, 2 cluster.
 #' @param SE SE estimator: 0 CR0 (Huber–White), 1 CR1 (Standard empirical correction),
@@ -720,13 +718,7 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   prepared <- maive_prepare_data(opts$dat, opts$studylevel)
   instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
-  if (opts$weight == 3L) {
-    waive_decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model)
-    sebs2fit1_waive <- instrumentation$sebs2fit1 * waive_decay_weights
-    w <- maive_compute_weights(opts$weight, prepared$sebs, sebs2fit1_waive)
-  } else {
-    w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
-  }
+  w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
 
   maive_run_pipeline(opts, prepared, instrumentation, w)
 }
