@@ -259,3 +259,70 @@ test_that("WAIVE matches MAIVE structure with different weights", {
   # Results should differ due to different weighting
   expect_false(isTRUE(all.equal(result_maive$beta, result_waive$beta)))
 })
+
+test_that("waive() function works and is consistent with WAIVE methodology", {
+  dat <- data.frame(
+    bs = c(0.5, 0.45, 0.55, 0.6),
+    sebs = c(0.25, 0.2, 0.22, 0.27),
+    Ns = c(50, 80, 65, 90)
+  )
+
+  # Test waive() with unweighted base
+  result_waive_fn <- waive(
+    dat = dat,
+    method = 3,
+    weight = 0,
+    instrument = 1,
+    studylevel = 0,
+    SE = 0,
+    AR = 0,
+    first_stage = 0
+  )
+
+  # Test maive(weight=3) - uses WAIVE logic
+  result_maive_w3 <- maive(
+    dat = dat,
+    method = 3,
+    weight = 3,
+    instrument = 1,
+    studylevel = 0,
+    SE = 0,
+    AR = 0,
+    first_stage = 0
+  )
+
+  # Both should work and produce valid results
+  expect_true(is.numeric(result_waive_fn$beta))
+  expect_true(is.numeric(result_maive_w3$beta))
+  expect_true(!is.na(result_waive_fn$beta))
+  expect_true(!is.na(result_maive_w3$beta))
+
+  # Should return same structure
+  expect_equal(names(result_waive_fn), names(result_maive_w3))
+
+  # Both should be similar (allow for numerical differences from different code paths)
+  expect_true(abs(result_waive_fn$beta - result_maive_w3$beta) < 0.1)
+  expect_true(abs(result_waive_fn$SE - result_maive_w3$SE) < 0.1)
+})
+
+test_that("waive() works with different base weighting schemes", {
+  dat <- data.frame(
+    bs = c(0.5, 0.45, 0.55, 0.6, 0.48),
+    sebs = c(0.25, 0.2, 0.22, 0.27, 0.19),
+    Ns = c(50, 80, 65, 90, 75)
+  )
+
+  # Test waive() with different base weights
+  result_unweighted <- waive(dat, method=1, weight=0, instrument=1, studylevel=0, SE=0, AR=0)
+  result_ivweighted <- waive(dat, method=1, weight=1, instrument=1, studylevel=0, SE=0, AR=0)
+  result_maiveweighted <- waive(dat, method=1, weight=2, instrument=1, studylevel=0, SE=0, AR=0)
+
+  # All should produce valid results
+  expect_true(is.numeric(result_unweighted$beta))
+  expect_true(is.numeric(result_ivweighted$beta))
+  expect_true(is.numeric(result_maiveweighted$beta))
+
+  # Results should differ based on base weighting
+  expect_false(isTRUE(all.equal(result_unweighted$beta, result_ivweighted$beta)))
+  expect_false(isTRUE(all.equal(result_unweighted$beta, result_maiveweighted$beta)))
+})
