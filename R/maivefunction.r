@@ -199,6 +199,41 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1) {
 }
 
 #' @keywords internal
+waive_compute_decay_weights <- function(first_stage_model) {
+  if (is.null(first_stage_model)) {
+    stop("first_stage_model must be supplied for WAIVE weighting.")
+  }
+
+  nu <- stats::residuals(first_stage_model)
+  if (length(nu) == 0L) {
+    stop("first_stage_model must provide residuals.")
+  }
+
+  sigma <- 1.4826 * stats::mad(nu, center = 0, constant = 1, na.rm = TRUE)
+  if (!is.finite(sigma) || sigma <= 0) {
+    sigma <- stats::sd(nu, na.rm = TRUE)
+    if (!is.finite(sigma) || sigma <= 0) {
+      sigma <- 1e-12
+    } else {
+      sigma <- sigma + 1e-12
+    }
+  }
+
+  z <- nu / sigma
+  z_neg <- pmax(-z, 0)
+  z_out <- pmax(abs(z) - 2, 0)
+  w_extra <- exp(-1.0 * z_neg - 0.25 * z_out^2)
+  w_extra <- pmax(w_extra, 0.05)
+
+  mean_w <- mean(w_extra)
+  if (!is.finite(mean_w) || mean_w <= 0) {
+    stop("Failed to compute valid WAIVE weights.")
+  }
+
+  w_extra / mean_w
+}
+
+#' @keywords internal
 maive_build_design_matrices <- function(bs, sebs, w, x, x2, D, dummy) {
   y <- bs / w
   X <- cbind(1, x) / w
@@ -232,6 +267,64 @@ maive_build_design_matrices <- function(bs, sebs, w, x, x2, D, dummy) {
     w = w,
     sebs = sebs,
     x = x
+  )
+}
+
+#' @keywords internal
+maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
+  if (!is.numeric(w) || length(w) != prepared$M) {
+    stop("w must be a numeric vector aligned with the input data.")
+  }
+
+  x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
+  x2 <- if (opts$instrument == 0L) prepared$sebs^2 else instrumentation$sebs2fit1
+
+  design <- maive_build_design_matrices(prepared$bs, prepared$sebs, w, x, x2, prepared$D, prepared$dummy)
+  fits <- maive_fit_models(design)
+  selection <- maive_select_petpeese(fits, design, opts$alpha_s)
+  sighats <- maive_compute_sigma_h(fits, design$w, design$sebs)
+  ek <- maive_fit_ek(selection, design, sighats, opts$method)
+
+  slope_info <- maive_slope_information(opts$method, fits, selection, ek)
+  slope_summary <- maive_quadratic_summary(opts$method, selection, slope_info)
+
+  egger_inf <- maive_infer_coef(fits$fatpet, 2L, opts$SE, prepared$dat, "g", opts$type_choice)
+  egger_boot_ci <- round(egger_inf$ci, 3)
+  egger_ar_ci <- maive_compute_egger_ar_ci(opts, fits, prepared, instrumentation$invNs)
+  cfg <- maive_get_config(opts$method, fits, selection, ek)
+  if (is.null(cfg$maive) || is.null(cfg$std)) {
+    stop("Failed to identify models for the selected method.")
+  }
+
+  beta <- unname(coef(cfg$maive)[1])
+  beta0 <- unname(coef(cfg$std)[1])
+
+  se_ma <- maive_get_intercept_se(cfg$maive, opts$SE, prepared$dat, "g", opts$type_choice)
+  se_std <- maive_get_intercept_se(cfg$std, opts$SE, prepared$dat, "g", opts$type_choice)
+
+  hausman <- maive_compute_hausman(beta, beta0, cfg$maive, cfg$std, prepared$g, opts$type_choice)
+  chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
+
+  ar_ci_res <- maive_compute_ar_ci(opts, fits, selection, prepared, instrumentation$invNs, opts$type_choice)
+
+  list(
+    "beta" = round(beta, 3),
+    "SE" = round(as.numeric(se_ma$se), 3),
+    "F-test" = instrumentation$F_hac,
+    "beta_standard" = round(beta0, 3),
+    "SE_standard" = round(as.numeric(se_std$se), 3),
+    "Hausman" = round(hausman, 3),
+    "Chi2" = round(chi2, 3),
+    "SE_instrumented" = sqrt(instrumentation$sebs2fit1),
+    "AR_CI" = ar_ci_res$b0_CI,
+    "pub bias p-value" = round(egger_inf$p, 3),
+    "egger_coef" = round(egger_inf$b, 3),
+    "egger_se" = round(egger_inf$se, 3),
+    "egger_boot_ci" = egger_boot_ci,
+    "egger_ar_ci" = egger_ar_ci,
+    "is_quadratic_fit" = slope_summary,
+    "boot_result" = se_ma$boot_result,
+    "slope_coef" = slope_info$coefficient
   )
 }
 
@@ -613,54 +706,26 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
   w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
-  x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
-  x2 <- if (opts$instrument == 0L) prepared$sebs^2 else instrumentation$sebs2fit1
 
-  design <- maive_build_design_matrices(prepared$bs, prepared$sebs, w, x, x2, prepared$D, prepared$dummy)
-  fits <- maive_fit_models(design)
-  selection <- maive_select_petpeese(fits, design, opts$alpha_s)
-  sighats <- maive_compute_sigma_h(fits, design$w, design$sebs)
-  ek <- maive_fit_ek(selection, design, sighats, opts$method)
+  maive_run_pipeline(opts, prepared, instrumentation, w)
+}
 
-  slope_info <- maive_slope_information(opts$method, fits, selection, ek)
-  slope_summary <- maive_quadratic_summary(opts$method, selection, slope_info)
+#' R code for WAIVE
+#'
+#' WAIVE extends MAIVE by smoothly downweighting potentially spurious precision in the
+#' second-stage regression while keeping all other components identical to MAIVE.
+#'
+#' @inheritParams maive
+#' @return See \code{maive} for a detailed description of the return values.
+#' @export
+waive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L) {
+  opts <- maive_validate_inputs(dat, method, weight, instrument, studylevel, SE, AR, first_stage)
+  prepared <- maive_prepare_data(opts$dat, opts$studylevel)
+  instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
-  egger_inf <- maive_infer_coef(fits$fatpet, 2L, opts$SE, prepared$dat, "g", opts$type_choice)
-  egger_boot_ci <- round(egger_inf$ci, 3)
-  egger_ar_ci <- maive_compute_egger_ar_ci(opts, fits, prepared, instrumentation$invNs)
-  cfg <- maive_get_config(opts$method, fits, selection, ek)
-  if (is.null(cfg$maive) || is.null(cfg$std)) {
-    stop("Failed to identify models for the selected method.")
-  }
+  base_w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  decay_weights <- waive_compute_decay_weights(instrumentation$first_stage_model)
+  w <- base_w / sqrt(decay_weights)
 
-  beta <- unname(coef(cfg$maive)[1])
-  beta0 <- unname(coef(cfg$std)[1])
-
-  se_ma <- maive_get_intercept_se(cfg$maive, opts$SE, prepared$dat, "g", opts$type_choice)
-  se_std <- maive_get_intercept_se(cfg$std, opts$SE, prepared$dat, "g", opts$type_choice)
-
-  hausman <- maive_compute_hausman(beta, beta0, cfg$maive, cfg$std, prepared$g, opts$type_choice)
-  chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
-
-  ar_ci_res <- maive_compute_ar_ci(opts, fits, selection, prepared, instrumentation$invNs, opts$type_choice)
-
-  list(
-    "beta" = round(beta, 3),
-    "SE" = round(as.numeric(se_ma$se), 3),
-    "F-test" = instrumentation$F_hac,
-    "beta_standard" = round(beta0, 3),
-    "SE_standard" = round(as.numeric(se_std$se), 3),
-    "Hausman" = round(hausman, 3),
-    "Chi2" = round(chi2, 3),
-    "SE_instrumented" = sqrt(instrumentation$sebs2fit1),
-    "AR_CI" = ar_ci_res$b0_CI,
-    "pub bias p-value" = round(egger_inf$p, 3),
-    "egger_coef" = round(egger_inf$b, 3),
-    "egger_se" = round(egger_inf$se, 3),
-    "egger_boot_ci" = egger_boot_ci,
-    "egger_ar_ci" = egger_ar_ci,
-    "is_quadratic_fit" = slope_summary,
-    "boot_result" = se_ma$boot_result,
-    "slope_coef" = slope_info$coefficient
-  )
+  maive_run_pipeline(opts, prepared, instrumentation, w)
 }
