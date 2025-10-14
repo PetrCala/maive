@@ -2,7 +2,7 @@
 % Please edit documentation in R/maivefunction.r
 \name{waive}
 \alias{waive}
-\title{R code for WAIVE}
+\title{WAIVE: Weighted Adjusted Instrumental Variable Estimator}
 \usage{
 waive(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L)
 }
@@ -29,49 +29,24 @@ of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
 List with the same structure as \code{maive()}. See \code{?maive} for details.
 }
 \description{
-WAIVE (Weighted Adjusted Instrumental Variable Estimator) extends MAIVE by applying
-exponential-decay weights that smoothly downweight studies with spurious precision
-or extreme outlier behavior. The first-stage instrumentation remains identical to MAIVE,
-but the second-stage regression uses additional robustness weighting.
+WAIVE extends MAIVE by applying exponential-decay weights that downweight
+studies with spurious precision or extreme outlier behavior.
 }
 \details{
-WAIVE computes decay weights from first-stage residuals:
-\itemize{
-  \item Negative residuals (spurious precision) → downweighted linearly
-  \item Extreme residuals (|z| > 2) → downweighted quadratically
-  \item Weight floor at 0.05 prevents complete exclusion
-  \item Weights normalized to mean = 1
-}
-
-The decay weights are applied by multiplying them with instrumented variances:
-\code{w = sqrt(sebs2_instrumented * decay_weights)}
-
-This ensures studies with spuriously small variances or extreme behavior
-receive less influence in the meta-analytic estimate.
-
-All other WAIVE components (instruments, AR CIs, standard errors, clustering)
-work identically to MAIVE.
+Computes robust downweighting based on first-stage residuals. Studies with
+negative residuals (spurious precision) or extreme residuals (outliers) receive
+reduced influence in the meta-analytic estimate.
 }
 \examples{
 \dontrun{
-# Basic WAIVE usage
 dat <- data.frame(
   bs = c(0.5, 0.45, 0.55, 0.6),
   sebs = c(0.25, 0.2, 0.22, 0.27),
   Ns = c(50, 80, 65, 90)
 )
 
-# WAIVE with PET-PEESE
-result <- waive(
-  dat = dat,
-  method = 3,        # PET-PEESE
-  weight = 0,        # Unweighted base (WAIVE decay applied automatically)
-  instrument = 1,    # Use instrumented SEs
-  studylevel = 0,    # No study-level clustering
-  SE = 0,            # CR0 standard errors
-  AR = 0,            # No AR CI (disabled for WAIVE)
-  first_stage = 0    # Levels specification
-)
+result <- waive(dat, method = 3, weight = 0, instrument = 1,
+                studylevel = 0, SE = 0, AR = 0, first_stage = 0)
 }
 
 }

@@ -194,7 +194,6 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1) {
   } else if (weight == 2L) {
     sqrt(sebs2fit1)
   } else if (weight == 3L) {
-    # WAIVE weights are computed separately and passed via sebs2fit1
     sqrt(sebs2fit1)
   } else {
     stop("Invalid weight option.")
@@ -202,19 +201,13 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1) {
 }
 
 #' @keywords internal
-#' Compute WAIVE exponential-decay weights from first-stage residuals
+#' Compute exponential-decay weights from first-stage residuals
 #'
 #' @param first_stage_model Fitted lm object from first-stage regression
 #' @return Exponential-decay weights normalized to mean 1
-#' @details
-#' Computes robust downweighting for spurious precision and outliers:
-#' - Negative residuals (too precise) → downweight linearly
-#' - Extreme residuals (|z| > 2) → downweight quadratically
-#' - Floor at 0.05 to prevent complete exclusion
-#' - Normalize to mean = 1
 maive_compute_waive_weights <- function(first_stage_model) {
   if (is.null(first_stage_model)) {
-    stop("first_stage_model must be supplied for WAIVE weighting.")
+    stop("first_stage_model must be supplied for weighting.")
   }
 
   nu <- stats::residuals(first_stage_model)
@@ -222,11 +215,8 @@ maive_compute_waive_weights <- function(first_stage_model) {
     stop("first_stage_model must provide residuals.")
   }
 
-  # Robust normalization using MAD (Median Absolute Deviation)
-  # Note: Using default centering (median) for standard MAD
   sigma <- 1.4826 * stats::mad(nu, constant = 1, na.rm = TRUE)
 
-  # Fallback to SD if MAD fails (e.g., all residuals identical)
   if (!is.finite(sigma) || sigma <= 0) {
     sigma <- stats::sd(nu, na.rm = TRUE)
     if (!is.finite(sigma) || sigma <= 0) {
@@ -236,36 +226,29 @@ maive_compute_waive_weights <- function(first_stage_model) {
     }
   }
 
-  # Standardize residuals
   z <- nu / sigma
+  z_neg <- pmax(-z, 0)
+  z_out <- pmax(abs(z) - 2, 0)
 
-  # Compute penalty components
-  z_neg <- pmax(-z, 0) # Penalize spurious precision (negative residuals)
-  z_out <- pmax(abs(z) - 2, 0) # Penalize extreme outliers (|z| > tau=2)
-
-  # Apply exponential-decay weights
   w <- exp(-1.0 * z_neg - 0.25 * z_out^2)
-
-  # Floor to avoid zero leverage
   w <- pmax(w, 0.05)
 
-  # Normalize to mean 1
   mean_w <- mean(w)
   if (!is.finite(mean_w) || mean_w <= 0) {
-    stop("Failed to compute valid WAIVE weights.")
+    stop("Failed to compute valid weights.")
   }
 
   w / mean_w
 }
 
 #' @keywords internal
-#' Run the shared MAIVE/WAIVE analysis pipeline
+#' Run the shared analysis pipeline
 #'
-#' @param opts Validated options from maive_validate_inputs
-#' @param prepared Prepared data from maive_prepare_data
-#' @param instrumentation First-stage results from maive_compute_variance_instrumentation
-#' @param w Final weights vector to use in second-stage regression
-#' @return List of results matching maive() output format
+#' @param opts Validated options
+#' @param prepared Prepared data
+#' @param instrumentation First-stage results
+#' @param w Weights for second-stage regression
+#' @return List of analysis results
 maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
   if (!is.numeric(w) || length(w) != prepared$M) {
     stop("w must be a numeric vector aligned with the input data.")
@@ -737,11 +720,8 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   prepared <- maive_prepare_data(opts$dat, opts$studylevel)
   instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
-  # WAIVE: Compute exponential-decay weights based on first-stage residuals
   if (opts$weight == 3L) {
-    # Compute WAIVE decay weights from first-stage residuals
     waive_decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model)
-    # Apply decay to instrumented variances (CORRECT formula: multiply, not divide)
     sebs2fit1_waive <- instrumentation$sebs2fit1 * waive_decay_weights
     w <- maive_compute_weights(opts$weight, prepared$sebs, sebs2fit1_waive)
   } else {
@@ -751,54 +731,29 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   maive_run_pipeline(opts, prepared, instrumentation, w)
 }
 
-#' R code for WAIVE
+#' WAIVE: Weighted Adjusted Instrumental Variable Estimator
 #'
-#' WAIVE (Weighted Adjusted Instrumental Variable Estimator) extends MAIVE by applying
-#' exponential-decay weights that smoothly downweight studies with spurious precision
-#' or extreme outlier behavior. The first-stage instrumentation remains identical to MAIVE,
-#' but the second-stage regression uses additional robustness weighting.
+#' WAIVE extends MAIVE by applying exponential-decay weights that downweight
+#' studies with spurious precision or extreme outlier behavior.
 #'
 #' @inheritParams maive
 #' @return List with the same structure as \code{maive()}. See \code{?maive} for details.
 #'
 #' @details
-#' WAIVE computes decay weights from first-stage residuals:
-#' \itemize{
-#'   \item Negative residuals (spurious precision) → downweighted linearly
-#'   \item Extreme residuals (|z| > 2) → downweighted quadratically
-#'   \item Weight floor at 0.05 prevents complete exclusion
-#'   \item Weights normalized to mean = 1
-#' }
-#'
-#' The decay weights are applied by multiplying them with instrumented variances:
-#' \code{w = sqrt(sebs2_instrumented * decay_weights)}
-#'
-#' This ensures studies with spuriously small variances or extreme behavior
-#' receive less influence in the meta-analytic estimate.
-#'
-#' All other WAIVE components (instruments, AR CIs, standard errors, clustering)
-#' work identically to MAIVE.
+#' Computes robust downweighting based on first-stage residuals. Studies with
+#' negative residuals (spurious precision) or extreme residuals (outliers) receive
+#' reduced influence in the meta-analytic estimate.
 #'
 #' @examples
 #' \dontrun{
-#' # Basic WAIVE usage
 #' dat <- data.frame(
 #'   bs = c(0.5, 0.45, 0.55, 0.6),
 #'   sebs = c(0.25, 0.2, 0.22, 0.27),
 #'   Ns = c(50, 80, 65, 90)
 #' )
 #'
-#' # WAIVE with PET-PEESE
-#' result <- waive(
-#'   dat = dat,
-#'   method = 3, # PET-PEESE
-#'   weight = 0, # Unweighted base (WAIVE decay applied automatically)
-#'   instrument = 1, # Use instrumented SEs
-#'   studylevel = 0, # No study-level clustering
-#'   SE = 0, # CR0 standard errors
-#'   AR = 0, # No AR CI (disabled for WAIVE)
-#'   first_stage = 0 # Levels specification
-#' )
+#' result <- waive(dat, method = 3, weight = 0, instrument = 1,
+#'                 studylevel = 0, SE = 0, AR = 0, first_stage = 0)
 #' }
 #'
 #' @seealso \code{\link{maive}}
@@ -808,23 +763,13 @@ waive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   prepared <- maive_prepare_data(opts$dat, opts$studylevel)
   instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
-  # Compute base weights (can be unweighted, inverse-variance, or MAIVE-adjusted)
-  base_w_variances <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  base_w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model)
 
-  # Compute WAIVE exponential-decay weights from first-stage residuals
-  waive_decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model)
-
-  # Apply WAIVE decay to base weights (CORRECT formula: multiply on variance scale)
-  # Convert weights to variance scale, apply decay, convert back
-  # Since base_w = sqrt(variances), we have variances = base_w^2
-  # Apply decay: new_variances = base_w^2 * decay
-  # Convert back: w = sqrt(new_variances) = base_w * sqrt(decay)
   if (opts$weight == 0L) {
-    # Unweighted base: w = 1, so WAIVE weight is sqrt(decay)
-    w <- sqrt(waive_decay_weights)
+    w <- sqrt(decay_weights)
   } else {
-    # Weighted base: apply decay on variance scale
-    w <- base_w_variances * sqrt(waive_decay_weights)
+    w <- base_w * sqrt(decay_weights)
   }
 
   maive_run_pipeline(opts, prepared, instrumentation, w)
