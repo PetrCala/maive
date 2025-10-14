@@ -50,6 +50,9 @@ of PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
 WAIVE extends MAIVE by smoothly downweighting potentially spurious precision in the
 second-stage regression while keeping instruments, AR confidence intervals, and
 standard errors identical to MAIVE.
+The exponential-decay leverage adjustments are applied multiplicatively to the
+baseline MAIVE weights so that suspiciously precise or outlying studies receive
+less influence.
 }
 \details{
 Data \code{dat} can be imported from an Excel file via:

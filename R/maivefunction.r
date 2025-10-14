@@ -209,7 +209,7 @@ waive_compute_decay_weights <- function(first_stage_model) {
     stop("first_stage_model must provide residuals.")
   }
 
-  sigma <- 1.4826 * stats::mad(nu, center = 0, constant = 1, na.rm = TRUE)
+  sigma <- stats::mad(nu, constant = 1.4826, na.rm = TRUE)
   if (!is.finite(sigma) || sigma <= 0) {
     sigma <- stats::sd(nu, na.rm = TRUE)
     if (!is.finite(sigma) || sigma <= 0) {
@@ -714,6 +714,9 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
 #'
 #' WAIVE extends MAIVE by smoothly downweighting potentially spurious precision in the
 #' second-stage regression while keeping all other components identical to MAIVE.
+#' The exponential-decay leverage adjustments are applied multiplicatively to the
+#' baseline MAIVE weights so that suspiciously precise or outlying studies receive
+#' less influence.
 #'
 #' @inheritParams maive
 #' @return See \code{maive} for a detailed description of the return values.
@@ -725,7 +728,7 @@ waive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
 
   base_w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
   decay_weights <- waive_compute_decay_weights(instrumentation$first_stage_model)
-  w <- base_w / sqrt(decay_weights)
+  w <- base_w * sqrt(decay_weights)
 
   maive_run_pipeline(opts, prepared, instrumentation, w)
 }

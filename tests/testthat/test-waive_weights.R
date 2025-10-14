@@ -64,8 +64,9 @@ test_that("WAIVE downweights suspiciously small residuals", {
   )
   decay <- MAIVE:::waive_compute_decay_weights(instrumentation$first_stage_model)
   base_w <- MAIVE:::maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
-  waive_w <- base_w / sqrt(decay)
+  waive_w <- base_w * sqrt(decay)
 
-  expect_true(any(decay < 1))
-  expect_true(any(waive_w > base_w))
+  down_idx <- which(decay < 1)
+  expect_true(length(down_idx) > 0)
+  expect_true(all(waive_w[down_idx] < base_w[down_idx]))
 })
