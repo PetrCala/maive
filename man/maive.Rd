@@ -11,7 +11,7 @@ maive(dat, method, weight, instrument, studylevel, SE, AR, first_stage = 0L)
 
 \item{method}{1 FAT-PET, 2 PEESE, 3 PET-PEESE, 4 EK.}
 
-\item{weight}{0 no weights, 1 standard weights, 2 adjusted weights.}
+\item{weight}{0 no weights, 1 standard weights, 2 MAIVE adjusted weights, 3 WAIVE weights.}
 
 \item{instrument}{1 yes, 0 no.}
 

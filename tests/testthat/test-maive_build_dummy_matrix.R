@@ -1,6 +1,6 @@
 test_that("maive_build_dummy_matrix produces one-hot encoded matrix", {
   values <- c("study_a", "study_b", "study_a", "study_c")
-  result <- MAIVE:::maive_build_dummy_matrix(values)
+  result <- maive:::maive_build_dummy_matrix(values)
 
   expect_true(is.matrix(result))
   expect_equal(nrow(result), length(values))
@@ -14,7 +14,7 @@ test_that("maive_build_dummy_matrix produces one-hot encoded matrix", {
 
 test_that("maive_build_dummy_matrix respects factor levels", {
   factor_values <- factor(c("x", "y", "x"), levels = c("y", "x"))
-  result <- MAIVE:::maive_build_dummy_matrix(factor_values)
+  result <- maive:::maive_build_dummy_matrix(factor_values)
 
   expect_equal(colnames(result), c("studyid.y", "studyid.x"))
   expect_equal(result[, "studyid.y"], c(0, 1, 0))
@@ -28,7 +28,7 @@ test_that("maive_build_dummy_matrix matches varhandle::to.dummy when available",
 
   values <- c("A", "B", "A", "C", "B")
   expected <- varhandle::to.dummy(data.frame(studyid = values), "studyid")
-  actual <- MAIVE:::maive_build_dummy_matrix(values)
+  actual <- maive:::maive_build_dummy_matrix(values)
 
   expect_identical(actual, expected)
 })

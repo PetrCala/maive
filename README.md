@@ -49,7 +49,7 @@ parentheses):
 | Option | Description | Values |
 |----|----|----|
 | method | Meta-analysis method | PET=1, PEESE=2, PET-PEESE=3 (default), EK=4 |
-| weighting | Weighting scheme | No weights=0 (default), Weights=1, Adjusted weights=2 |
+| weighting | Weighting scheme | No weights=0 (default), Weights=1, MAIVE adjusted weights=2, WAIVE weights=3 |
 | instrumenting | Instrument standard errors | No=0, Yes=1 (default) |
 | studylevel | Study-level correlation | None=0, Fixed effects=1, Cluster=2 (default), Fixed effects and Cluster=3|
 | SE | Standard errors | CR0 (Huber–White)=0, CR1 (Standard empirical correction)=1, CR2 (Bias-reduced estimator)=2, wild bootstrap=3 (default)|
@@ -61,12 +61,19 @@ The default MAIVE meta-estimator is MAIVE-PET-PEESE with instrumented
 standard errors, no weights, cluster and wild bootstrap. However, the user can adjust:
 
 - The meta-analysis method (PET, PEESE, PET-PEESE, EK).
-- The weighting (no weights, inverse-variance weights, or MAIVE-adjusted
-  weights).
+- The weighting (no weights, inverse-variance weights, MAIVE-adjusted weights, or WAIVE weights).
 - Instrumentation of standard errors (yes or no).
 - Accounting for study-level correlation (none, fixed effects,
   cluster-robust methods, or fixed effects and cluster-robust methods).
 - Use CR0 (Huber–White), CR1 (Standard empirical correction)=1, or CR2 (Bias-reduced estimator) for the estimation of the standard errors
+
+## WAIVE: Weighted Adjusted IV Estimator
+
+WAIVE (weight=3) extends MAIVE by adding exponential-decay weights that downweight:
+- **Spuriously precise studies** (negative first-stage residuals)
+- **Extreme outliers** (large residuals in either direction)
+
+WAIVE provides a more robust meta-analytic estimate when p-hacking or extreme leverage points are suspected. See [WAIVE.md](WAIVE.md) for detailed documentation and examples.
 
 ## Output
 

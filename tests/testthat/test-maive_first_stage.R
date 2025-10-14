@@ -47,9 +47,9 @@ test_that("Hausman statistic uses difference-in-estimators variance", {
     first_stage = 0
   )
 
-  opts <- MAIVE:::maive_validate_inputs(dat, 1, 0, 1, 2, 0, 1, 0)
-  prepared <- MAIVE:::maive_prepare_data(opts$dat, opts$studylevel)
-  instrumentation <- MAIVE:::maive_compute_variance_instrumentation(
+  opts <- maive:::maive_validate_inputs(dat, 1, 0, 1, 2, 0, 1, 0)
+  prepared <- maive:::maive_prepare_data(opts$dat, opts$studylevel)
+  instrumentation <- maive:::maive_compute_variance_instrumentation(
     prepared$sebs,
     prepared$Ns,
     prepared$g,
@@ -57,15 +57,15 @@ test_that("Hausman statistic uses difference-in-estimators variance", {
     opts$instrument,
     opts$first_stage_type
   )
-  w <- MAIVE:::maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  w <- maive:::maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
   x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
   x2 <- if (opts$instrument == 0L) prepared$sebs^2 else instrumentation$sebs2fit1
-  design <- MAIVE:::maive_build_design_matrices(prepared$bs, prepared$sebs, w, x, x2, prepared$D, prepared$dummy)
-  fits <- MAIVE:::maive_fit_models(design)
-  selection <- MAIVE:::maive_select_petpeese(fits, design, opts$alpha_s)
-  sighats <- MAIVE:::maive_compute_sigma_h(fits, design$w, design$sebs)
-  ek <- MAIVE:::maive_fit_ek(selection, design, sighats, opts$method)
-  cfg <- MAIVE:::maive_get_config(opts$method, fits, selection, ek)
+  design <- maive:::maive_build_design_matrices(prepared$bs, prepared$sebs, w, x, x2, prepared$D, prepared$dummy)
+  fits <- maive:::maive_fit_models(design)
+  selection <- maive:::maive_select_petpeese(fits, design, opts$alpha_s)
+  sighats <- maive:::maive_compute_sigma_h(fits, design$w, design$sebs)
+  ek <- maive:::maive_fit_ek(selection, design, sighats, opts$method)
+  cfg <- maive:::maive_get_config(opts$method, fits, selection, ek)
 
   V_iv <- clubSandwich::vcovCR(cfg$maive, cluster = prepared$g, type = opts$type_choice)
   V_ols <- clubSandwich::vcovCR(cfg$std, cluster = prepared$g, type = opts$type_choice)

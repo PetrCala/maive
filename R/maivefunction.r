@@ -32,7 +32,7 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   first_stage <- scalar_int(first_stage, "first_stage")
 
   if (!method %in% 1:4) stop("method must be between 1 and 4.")
-  if (!weight %in% 0:2) stop("weight must be 0, 1, or 2.")
+  if (!weight %in% 0:3) stop("weight must be 0, 1, 2, or 3.")
   if (!instrument %in% 0:1) stop("instrument must be 0 or 1.")
   if (!studylevel %in% 0:3) stop("studylevel must be between 0 and 3.")
   if (!SE %in% 0:3) stop("SE must be between 0 and 3.")
@@ -43,7 +43,7 @@ maive_validate_inputs <- function(dat, method, weight, instrument, studylevel, S
   type_choice <- if (SE == 3L) "CR0" else type_map[SE + 1L]
   first_stage_type <- c("levels", "log")[first_stage + 1L]
 
-  if (method == 4L || weight %in% c(1L, 2L) || instrument == 0L) {
+  if (method == 4L || weight %in% c(1L, 2L, 3L) || instrument == 0L) {
     AR <- 0L
   }
 
@@ -193,9 +193,48 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1) {
     sebs
   } else if (weight == 2L) {
     sqrt(sebs2fit1)
+  } else if (weight == 3L) {
+    # WAIVE weights are computed separately and passed via sebs2fit1
+    sqrt(sebs2fit1)
   } else {
     stop("Invalid weight option.")
   }
+}
+
+#' @keywords internal
+#' Compute WAIVE weights based on first-stage residuals
+#'
+#' @param residuals Residuals from first-stage regression
+#' @param sebs2fit1 Fitted values from first-stage (for WAIVE base weights)
+#' @return Exponential-decay weights normalized to mean 1
+maive_compute_waive_weights <- function(residuals, sebs2fit1) {
+  nu <- residuals
+
+  # B) Robust normalization using MAD
+  mad_value <- stats::mad(nu, constant = 1.4826)
+  sigma <- if (mad_value == 0) {
+    stats::sd(nu) + 1e-12
+  } else {
+    mad_value
+  }
+  z <- nu / sigma
+
+  # C) Exponential-decay weights
+  # Penalize spurious precision (negative residuals = smaller than expected variance)
+  z_neg <- pmax(-z, 0)
+  # Trim extreme residuals (outliers in either direction)
+  z_out <- pmax(abs(z) - 2, 0)
+
+  # Apply exponential decay
+  w <- exp(-1.0 * z_neg - 0.25 * z_out^2)
+
+  # Floor to avoid zero leverage
+  w <- pmax(w, 0.05)
+
+  # Normalize to mean 1
+  w <- w / mean(w)
+
+  w
 }
 
 #' @keywords internal
@@ -566,7 +605,7 @@ maive_compute_ar_ci <- function(opts, fits, selection, prepared, invNs, type_cho
 #'
 #' @param dat Data frame with columns bs, sebs, Ns, study_id (optional).
 #' @param method 1 FAT-PET, 2 PEESE, 3 PET-PEESE, 4 EK.
-#' @param weight 0 no weights, 1 standard weights, 2 adjusted weights.
+#' @param weight 0 no weights, 1 standard weights, 2 MAIVE adjusted weights, 3 WAIVE weights.
 #' @param instrument 1 yes, 0 no.
 #' @param studylevel Correlation at study level: 0 none, 1 fixed effects, 2 cluster.
 #' @param SE SE estimator: 0 CR0 (Huber–White), 1 CR1 (Standard empirical correction),
@@ -612,7 +651,20 @@ maive <- function(dat, method, weight, instrument, studylevel, SE, AR, first_sta
   prepared <- maive_prepare_data(opts$dat, opts$studylevel)
   instrumentation <- maive_compute_variance_instrumentation(prepared$sebs, prepared$Ns, prepared$g, opts$type_choice, opts$instrument, opts$first_stage_type)
 
-  w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  # WAIVE: Compute exponential-decay weights based on first-stage residuals
+  if (opts$weight == 3L) {
+    # Get residuals from first-stage model
+    first_stage_residuals <- stats::residuals(instrumentation$first_stage_model)
+    # Compute WAIVE adjustment weights
+    waive_weights <- maive_compute_waive_weights(first_stage_residuals, instrumentation$sebs2fit1)
+    # Combine WAIVE weights with base MAIVE weights
+    # WAIVE uses instrumented variances weighted by exponential-decay
+    sebs2fit1_waive <- instrumentation$sebs2fit1 * waive_weights
+    w <- maive_compute_weights(opts$weight, prepared$sebs, sebs2fit1_waive)
+  } else {
+    w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1)
+  }
+
   x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
   x2 <- if (opts$instrument == 0L) prepared$sebs^2 else instrumentation$sebs2fit1
 
