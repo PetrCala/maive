@@ -273,8 +273,8 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
     stop("Failed to identify models for the selected method.")
   }
 
-  beta <- unname(coef(cfg$maive)[1])
-  beta0 <- unname(coef(cfg$std)[1])
+  beta <- unname(coef(hausman_cfg$maive)[1])
+  beta0 <- unname(coef(hausman_cfg$std)[1])
 
   se_ma <- maive_get_intercept_se(cfg$maive, opts$SE, prepared$dat, "g", opts$type_choice)
   se_std <- maive_get_intercept_se(cfg$std, opts$SE, prepared$dat, "g", opts$type_choice)
