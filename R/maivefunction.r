@@ -355,7 +355,7 @@ maive_build_auxiliary_petpeese_matrix <- function(term, design) {
 
 #' @keywords internal
 maive_fit_auxiliary_petpeese <- function(selection, design) {
-  if (isTRUE(selection$quadratic_decision0)) {
+  if (isTRUE(selection$quadratic_decision)) {
     X_aux <- maive_build_auxiliary_petpeese_matrix(design$sebs^2, design)
   } else {
     X_aux <- maive_build_auxiliary_petpeese_matrix(design$sebs, design)
