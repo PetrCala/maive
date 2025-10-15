@@ -24,10 +24,12 @@ manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed 
   V_cr1 <- clubSandwich::vcovCR(model, cluster = data[[cluster_var]], type = "CR1")
   base_se_cr1 <- sqrt(diag(V_cr1))
 
-  # Matrix to store bootstrap coefficients and t-statistics
+  # Matrix to store bootstrap coefficients, bootstrap SEs, and t-statistics
   boot_coefs <- matrix(NA, nrow = B, ncol = k)
+  boot_se_cr1 <- matrix(NA, nrow = B, ncol = k)
   boot_t_stats <- matrix(NA, nrow = B, ncol = k)
   colnames(boot_coefs) <- coef_names
+  colnames(boot_se_cr1) <- coef_names
   colnames(boot_t_stats) <- coef_names
 
   # Loop over bootstrap replications
@@ -49,14 +51,40 @@ manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed 
     }
 
     # Store bootstrap coefficients
-    boot_coefs[b, ] <- coef(fit_boot)
+    coef_boot <- coef(fit_boot)
+    if (is.null(names(coef_boot))) {
+      names(coef_boot) <- coef_names
+    }
+    boot_coefs[b, ] <- coef_boot[coef_names]
+
+    # Compute bootstrap clustered SEs (CR1) for studentized statistics
+    V_boot <- tryCatch(
+      clubSandwich::vcovCR(fit_boot, cluster = data[[cluster_var]], type = "CR1"),
+      error = function(e) NULL
+    )
+
+    if (!is.null(V_boot)) {
+      se_boot <- sqrt(diag(V_boot))
+      se_boot_named <- rep(NA_real_, k)
+      names(se_boot_named) <- coef_names
+      if (!is.null(names(se_boot))) {
+        se_boot_named[names(se_boot)] <- se_boot
+      } else if (length(se_boot) == k) {
+        se_boot_named <- se_boot
+        names(se_boot_named) <- coef_names
+      }
+      boot_se_cr1[b, ] <- se_boot_named
+    }
   }
 
   # Compute t-statistics for each bootstrap replication
-  # t_b = (beta_b - beta_base) / SE_CR1
-  # Use CR1 SE as the denominator (not bootstrap SD)
+  # t_b = (beta_b - beta_base) / SE*_b
   for (j in 1:k) {
-    boot_t_stats[, j] <- (boot_coefs[, j] - base_coefs[j]) / base_se_cr1[j]
+    diffs <- boot_coefs[, j] - base_coefs[j]
+    denom <- boot_se_cr1[, j]
+    valid <- !is.na(denom) & denom != 0
+    boot_t_stats[, j] <- NA_real_
+    boot_t_stats[valid, j] <- diffs[valid] / denom[valid]
   }
 
   # Compute t-percentile CI
@@ -67,7 +95,16 @@ manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed 
   colnames(boot_ci) <- c("lower", "upper")
 
   for (j in 1:k) {
-    t_quantiles <- quantile(boot_t_stats[, j], probs = c(1 - alpha / 2, alpha / 2))
+    if (all(is.na(boot_t_stats[, j]))) {
+      t_quantiles <- c(NA_real_, NA_real_)
+    } else {
+      t_quantiles <- stats::quantile(
+        boot_t_stats[, j],
+        probs = c(1 - alpha / 2, alpha / 2),
+        na.rm = TRUE,
+        names = FALSE
+      )
+    }
     boot_ci[j, "lower"] <- base_coefs[j] - t_quantiles[1] * base_se_cr1[j]
     boot_ci[j, "upper"] <- base_coefs[j] - t_quantiles[2] * base_se_cr1[j]
   }
@@ -81,6 +118,7 @@ manual_wild_cluster_boot_se <- function(model, data, cluster_var, B = 500, seed 
     boot_se = boot_se,
     boot_ci = boot_ci,
     boot_coefs = boot_coefs,
-    boot_t_stats = boot_t_stats
+    boot_t_stats = boot_t_stats,
+    boot_rep_se = boot_se_cr1
   ))
 }
