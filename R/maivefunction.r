@@ -268,6 +268,7 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
   egger_boot_ci <- round(egger_inf$ci, 3)
   egger_ar_ci <- maive_compute_egger_ar_ci(opts, fits, prepared, instrumentation$invNs)
   cfg <- maive_get_config(opts$method, fits, selection, ek)
+  hausman_cfg <- maive_get_hausman_models(opts$method, cfg, selection, design)
   if (is.null(cfg$maive) || is.null(cfg$std)) {
     stop("Failed to identify models for the selected method.")
   }
@@ -278,7 +279,7 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
   se_ma <- maive_get_intercept_se(cfg$maive, opts$SE, prepared$dat, "g", opts$type_choice)
   se_std <- maive_get_intercept_se(cfg$std, opts$SE, prepared$dat, "g", opts$type_choice)
 
-  hausman <- maive_compute_hausman(beta, beta0, cfg$maive, cfg$std, prepared$g, opts$type_choice)
+  hausman <- maive_compute_hausman(beta, beta0, hausman_cfg$maive, hausman_cfg$std, prepared$g, opts$type_choice)
   chi2 <- qchisq(p = 0.05, df = 1, lower.tail = FALSE)
 
   ar_ci_res <- maive_compute_ar_ci(opts, fits, selection, prepared, instrumentation$invNs, opts$type_choice)
@@ -337,8 +338,29 @@ maive_build_design_matrices <- function(bs, sebs, w, x, x2, D, dummy) {
     cD0 = cD0,
     w = w,
     sebs = sebs,
-    x = x
+    x = x,
+    D = D,
+    dummy = dummy
   )
+}
+
+#' @keywords internal
+maive_build_auxiliary_petpeese_matrix <- function(term, design) {
+  base <- cbind(1, term) / design$w
+  if (design$dummy == 1L && !is.null(design$D) && ncol(design$D) > 0L) {
+    base <- cbind(base, design$D / design$w)
+  }
+  base
+}
+
+#' @keywords internal
+maive_fit_auxiliary_petpeese <- function(selection, design) {
+  if (isTRUE(selection$quadratic_decision0)) {
+    X_aux <- maive_build_auxiliary_petpeese_matrix(design$sebs^2, design)
+  } else {
+    X_aux <- maive_build_auxiliary_petpeese_matrix(design$sebs, design)
+  }
+  lm(design$y ~ 0 + X_aux)
 }
 
 #' @keywords internal
@@ -623,6 +645,16 @@ maive_get_config <- function(method, fits, selection, ek) {
     "4" = list(maive = ek$ekreg, std = ek$ekreg0),
     stop("Invalid method")
   )
+}
+
+#' @keywords internal
+maive_get_hausman_models <- function(method, cfg, selection, design) {
+  if (as.character(method) != "3") {
+    return(cfg)
+  }
+
+  aux_std <- maive_fit_auxiliary_petpeese(selection, design)
+  list(maive = cfg$maive, std = aux_std)
 }
 
 #' @keywords internal

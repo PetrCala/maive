@@ -75,6 +75,9 @@ The function returns:
 
 - The first stage regresses variances on a constant and inverse sample sizes.
 - The Hausman-type test is weighted by the variance of the MAIVE estimator (conservative test).
+- When comparing PET-PEESE variants, MAIVE now fits an auxiliary PET-PEESE using the same
+  weighting scheme as the MAIVE estimator so that the Hausman statistic remains defined even
+  when the selected weighting option differs between estimators.
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level correlation.
 - The Anderson-Rubin confidence interval follows Keane and Neal (2023).

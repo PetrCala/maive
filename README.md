@@ -87,7 +87,9 @@ The function returns:
   sizes.
 - The Hausman-type test compares the MAIVE IV intercept with its OLS counterpart using
   the difference-in-estimators variance under the selected robust/clustered option.
-  estimator (conservative test).
+  estimator (conservative test). When PET-PEESE estimators are compared, MAIVE now fits
+  an auxiliary PET-PEESE with the same weighting scheme as the MAIVE estimator so the
+  Hausman statistic remains available even when weighting choices differ.
 - Study fixed effects are demeaned so intercept measures a grand mean.
 - If no study-id column is provided, the program assumes no study-level
   correlation.
