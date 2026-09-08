@@ -47,6 +47,7 @@ Suggests:
     knitr,
     rmarkdown,
     varhandle,
-    metafor
+    metafor,
+    dplyr
 VignetteBuilder: knitr
 LazyData: true
