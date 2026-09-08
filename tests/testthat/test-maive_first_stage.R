@@ -20,7 +20,7 @@ test_that("log first stage applies smearing retransformation", {
   smearing <- mean(exp(residuals(log_model)))
   sehat_manual <- exp(predict(log_model)) * smearing
 
-  expect_equal(result$SE_instrumented, sqrt(sehat_manual), tolerance = 1e-10)
+  expect_equal(result$SE_instrumented, unname(sqrt(sehat_manual)), tolerance = 1e-10)
 
   manual_vcov <- clubSandwich::vcovCR(log_model, cluster = seq_len(nrow(dat)), type = "CR0")
   slope <- coef(log_model)[2]
