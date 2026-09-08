@@ -295,9 +295,9 @@ test_that("waive() works with different base weighting schemes", {
   )
 
   # Test waive() with different base weights
-  result_unweighted <- waive(dat, method=1, weight=0, instrument=1, studylevel=0, SE=0, AR=0)
-  result_ivweighted <- waive(dat, method=1, weight=1, instrument=1, studylevel=0, SE=0, AR=0)
-  result_maiveweighted <- waive(dat, method=1, weight=2, instrument=1, studylevel=0, SE=0, AR=0)
+  result_unweighted <- waive(dat, method=1, weight=0, instrument=1, studylevel=0, SE=0, AR=0, first_stage=0)
+  result_ivweighted <- waive(dat, method=1, weight=1, instrument=1, studylevel=0, SE=0, AR=0, first_stage=0)
+  result_maiveweighted <- waive(dat, method=1, weight=2, instrument=1, studylevel=0, SE=0, AR=0, first_stage=0)
 
   # All should produce valid results
   expect_true(is.numeric(result_unweighted$beta))

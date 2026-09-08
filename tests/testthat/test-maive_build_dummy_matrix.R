@@ -54,7 +54,7 @@ test_that("a single-level study identifier no longer hits the raw contrasts erro
 
   # Without clustering the fit proceeds with no study dummies
   for (studylevel in c(0, 1)) {
-    res <- suppressWarnings(maive(dat, method = 3, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0))
+    res <- suppressWarnings(maive(dat, method = 3, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0, first_stage = 0))
     expect_true(is.finite(res$beta))
   }
 
@@ -62,7 +62,7 @@ test_that("a single-level study identifier no longer hits the raw contrasts erro
   for (studylevel in c(2, 3)) {
     msg <- tryCatch(
       {
-        suppressWarnings(maive(dat, method = 3, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0))
+        suppressWarnings(maive(dat, method = 3, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0, first_stage = 0))
         ""
       },
       error = function(e) conditionMessage(e)
@@ -90,7 +90,7 @@ test_that("euro results match the 0.2.5 reference at all four studylevels", {
     for (method in 1:4) {
       res <- suppressWarnings(maive(
         euro,
-        method = method, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0
+        method = method, weight = 0, instrument = 1, studylevel = studylevel, SE = 2, AR = 0, first_stage = 0
       ))
       sub <- ref[ref$studylevel == studylevel & ref$method == method, ]
       for (i in seq_len(nrow(sub))) {

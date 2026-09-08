@@ -148,3 +148,93 @@ test_that("Hausman PET-PEESE uses MAIVE weights", {
 
   expect_equal(as.numeric(result$Hausman), expected_value)
 })
+
+first_stage_default_fixture <- function() {
+  Ns <- c(50, 80, 120, 200, 300, 450, 600, 800, 1000, 1500, 2000, 3000)
+  scale <- c(1.1, 0.9, 1.2, 0.8, 1.0, 1.3, 0.7, 1.05, 0.95, 1.15, 0.85, 1.0)
+  sebs <- scale / sqrt(Ns)
+  noise <- c(0.02, -0.01, 0.03, -0.02, 0.01, 0.00, -0.03, 0.02, -0.01, 0.01, 0.00, -0.02)
+  data.frame(
+    bs = 0.3 + 0.5 * sebs + noise,
+    sebs = sebs,
+    Ns = Ns,
+    study_id = rep(1:6, each = 2)
+  )
+}
+
+first_stage_default_fields <- c("beta", "SE", "F-test", "SE_instrumented", "Hausman", "egger_coef")
+
+test_that("normalize_maive_options() defaults first_stage to log", {
+  dat <- first_stage_default_fixture()
+  base <- list(dat = dat, method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+
+  omitted <- do.call(MAIVE:::normalize_maive_options, base)
+  expect_identical(omitted$first_stage, 1L)
+  expect_identical(omitted$first_stage_type, "log")
+
+  null_arg <- do.call(MAIVE:::normalize_maive_options, c(base, list(first_stage = NULL)))
+  expect_identical(null_arg$first_stage, 1L)
+  expect_identical(null_arg$first_stage_type, "log")
+
+  levels_arg <- do.call(MAIVE:::normalize_maive_options, c(base, list(first_stage = 0)))
+  expect_identical(levels_arg$first_stage, 0L)
+  expect_identical(levels_arg$first_stage_type, "levels")
+
+  levels_name <- do.call(MAIVE:::normalize_maive_options, c(base, list(first_stage = "levels")))
+  expect_identical(levels_name$first_stage, 0L)
+})
+
+test_that("maive() uses the log first stage when first_stage is omitted", {
+  dat <- first_stage_default_fixture()
+  args <- list(dat = dat, method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+
+  default <- do.call(maive, args)
+  log_stage <- do.call(maive, c(args, list(first_stage = 1)))
+  levels_stage <- do.call(maive, c(args, list(first_stage = 0)))
+
+  expect_equal(default[first_stage_default_fields], log_stage[first_stage_default_fields])
+  expect_false(isTRUE(all.equal(default$SE_instrumented, levels_stage$SE_instrumented)))
+  expect_false(isTRUE(all.equal(default$beta, levels_stage$beta)))
+  expect_false(isTRUE(all.equal(default$`F-test`, levels_stage$`F-test`)))
+
+  # Explicit NULL falls back to the same default
+  null_stage <- do.call(maive, c(args, list(first_stage = NULL)))
+  expect_equal(null_stage[first_stage_default_fields], log_stage[first_stage_default_fields])
+})
+
+test_that("waive() uses the log first stage when first_stage is omitted", {
+  dat <- first_stage_default_fixture()
+  args <- list(dat = dat, method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+
+  default <- do.call(waive, args)
+  log_stage <- do.call(waive, c(args, list(first_stage = 1)))
+  levels_stage <- do.call(waive, c(args, list(first_stage = 0)))
+
+  expect_equal(default[first_stage_default_fields], log_stage[first_stage_default_fields])
+  expect_equal(default$weights, log_stage$weights)
+  expect_false(isTRUE(all.equal(default$SE_instrumented, levels_stage$SE_instrumented)))
+  expect_false(isTRUE(all.equal(default$beta, levels_stage$beta)))
+  expect_false(isTRUE(all.equal(default$weights, levels_stage$weights)))
+})
+
+test_that("first_stage = 0 reproduces the levels first stage from the paper", {
+  dat <- first_stage_default_fixture()
+  result <- maive(
+    dat = dat,
+    method = 1,
+    weight = 0,
+    instrument = 1,
+    studylevel = 0,
+    SE = 0,
+    AR = 0,
+    first_stage = 0
+  )
+
+  # The published specification regresses sebs^2 on a constant and 1/Ns and
+  # refits through the origin when the intercept is negative.
+  levels_model <- lm(I(dat$sebs^2) ~ I(1 / dat$Ns))
+  if (coef(levels_model)[1] < 0) {
+    levels_model <- lm(I(dat$sebs^2) ~ 0 + I(1 / dat$Ns))
+  }
+  expect_equal(result$SE_instrumented, unname(sqrt(fitted(levels_model))), tolerance = 1e-10)
+})

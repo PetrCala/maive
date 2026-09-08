@@ -14,7 +14,7 @@ test_that("maive() accepts custom column names via estimate/se/n/study_id", {
   res_custom <- suppressWarnings(maive(
     dat = custom,
     estimate = "my_est", se = "my_se", n = "my_n", study_id = "my_study",
-    method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 2, AR = 0
+    method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 2, AR = 0, first_stage = 0
   ))
 
   standard <- data.frame(
@@ -23,7 +23,7 @@ test_that("maive() accepts custom column names via estimate/se/n/study_id", {
   )
   res_standard <- suppressWarnings(maive(
     standard,
-    method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 2, AR = 0
+    method = 3, weight = 0, instrument = 1, studylevel = 2, SE = 2, AR = 0, first_stage = 0
   ))
 
   expect_equal(res_custom$beta, res_standard$beta)
@@ -38,7 +38,7 @@ test_that("custom column names work without a study identifier", {
   res <- suppressWarnings(maive(
     dat = custom,
     estimate = "my_est", se = "my_se", n = "my_n",
-    method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0
+    method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0, first_stage = 0
   ))
 
   expect_true(is.numeric(res$beta))
@@ -53,14 +53,14 @@ test_that("completely empty rows are dropped before custom columns are resolved"
     res_empty <- suppressWarnings(maive(
       dat = with_empty,
       estimate = "my_est", se = "my_se", n = "my_n", study_id = "my_study",
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
     )),
     "Removed 1 completely empty row"
   )
   res_clean <- suppressWarnings(maive(
     dat = custom,
     estimate = "my_est", se = "my_se", n = "my_n", study_id = "my_study",
-    method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+    method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
   ))
 
   expect_equal(res_empty$beta, res_clean$beta)
@@ -72,7 +72,7 @@ test_that("a missing custom column is reported by its mapped name", {
     maive(
       dat = custom,
       estimate = "not_there", se = "my_se", n = "my_n",
-      method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0, first_stage = 0
     ),
     "Missing required columns: not_there"
   )
@@ -86,7 +86,7 @@ test_that("positional study_id fallback warns and names the column", {
   )
 
   expect_warning(
-    maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0),
+    maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0),
     "using the fourth column \\('year'\\)"
   )
 })
@@ -101,7 +101,7 @@ test_that("an explicit study_id suppresses the positional fallback warning", {
   expect_no_warning(
     maive(
       four_col,
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0,
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0,
       study_id = "year"
     )
   )
@@ -118,9 +118,9 @@ test_that("a column named study_id is used silently wherever it sits", {
   four_col <- five_col[, c("bs", "sebs", "Ns", "study_id")]
 
   expect_no_warning(
-    res_five <- maive(five_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+    res_five <- maive(five_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
   )
-  res_four <- maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  res_four <- maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
 
   expect_equal(res_five$beta, res_four$beta)
   expect_equal(res_five$SE, res_four$SE)
@@ -138,9 +138,9 @@ test_that("the positional fallback still drives clustering when accepted", {
   )
 
   res_fallback <- suppressWarnings(
-    maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+    maive(four_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
   )
-  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
 
   expect_equal(res_fallback$SE, res_named$SE)
 })

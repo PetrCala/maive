@@ -43,7 +43,7 @@ These practices create **spuriously precise estimates** that appear more reliabl
 
 MAIVE uses **instrumental variables** to correct for spurious precision:
 
-1. **First-stage regression**: Instruments the potentially manipulated standard errors using inverse sample sizes (which researchers cannot easily manipulate)
+1. **First-stage regression**: Instruments the potentially manipulated standard errors using sample sizes (which researchers cannot easily manipulate)
 2. **Second-stage regression**: Uses the instrumented standard errors in meta-regression models
 
 This approach provides:
@@ -358,11 +358,22 @@ result_boot <- maive(data, method = 3, weight = 0, instrument = 1,
 
 ## First-Stage Specification
 
-MAIVE allows two functional forms for the first-stage regression:
+MAIVE allows two functional forms for the first-stage regression. The log specification is the default; pass `first_stage = 0` to reproduce the levels specification from the published paper.
 
-### Levels (Default)
+### Log (Default)
 
-Regresses variance (sebs²) on constant and 1/Ns:
+Log-linear regression of log(sebs²) on log(Ns) with smearing retransformation. The fitted variance is always positive, so no estimate can drop out of the second stage:
+
+```{r first-stage-log, eval = FALSE}
+result_log <- maive(data, method = 3, weight = 0, instrument = 1,
+                    studylevel = 2, SE = 3, AR = 1, first_stage = 1)
+
+cat("First-stage (log) F-test:", round(result_log$`F-test`, 3), "\n")
+```
+
+### Levels (Paper Specification)
+
+Regresses variance (sebs²) on constant and 1/Ns. This is the specification in Irsova et al. (2025):
 
 ```{r first-stage-levels, eval = FALSE}
 result_levels <- maive(data, method = 3, weight = 0, instrument = 1,
@@ -371,18 +382,7 @@ result_levels <- maive(data, method = 3, weight = 0, instrument = 1,
 cat("First-stage (levels) F-test:", round(result_levels$`F-test`, 3), "\n")
 ```
 
-The levels fit is an ordinary least squares regression, so an individual fitted variance can be negative even when the intercept is not. Such an estimate has no instrumented standard error and is excluded from everything built on it (weights, PET, PEESE, PET-PEESE, EK, the F-test, the Hausman comparison, the Anderson-Rubin intervals, the bootstrap), so every reported statistic uses the same rows. A warning reports the count, which is also returned as `n_excluded` with the positions in `excluded_rows`. The log specification below cannot fit a negative variance and never excludes an estimate.
-
-### Log Specification
-
-Log-linear regression with smearing retransformation:
-
-```{r first-stage-log, eval = FALSE}
-result_log <- maive(data, method = 3, weight = 0, instrument = 1,
-                    studylevel = 2, SE = 3, AR = 1, first_stage = 1)
-
-cat("First-stage (log) F-test:", round(result_log$`F-test`, 3), "\n")
-```
+The levels fit is an ordinary least squares regression, so an individual fitted variance can be negative even when the intercept is not. Such an estimate has no instrumented standard error and is excluded from everything built on it (weights, PET, PEESE, PET-PEESE, EK, the F-test, the Hausman comparison, the Anderson-Rubin intervals, the bootstrap), so every reported statistic uses the same rows. A warning reports the count, which is also returned as `n_excluded` with the positions in `excluded_rows`. The log specification above, the default, cannot fit a negative variance and never excludes an estimate.
 
 ## WAIVE: More Aggressive Correction
 

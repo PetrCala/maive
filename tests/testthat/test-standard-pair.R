@@ -5,7 +5,7 @@ education_fixture <- function() {
 run_education <- function(method, weight = 0) {
   suppressWarnings(maive(
     education_fixture(),
-    method = method, weight = weight, instrument = 1, studylevel = 2, SE = 2, AR = 0
+    method = method, weight = weight, instrument = 1, studylevel = 2, SE = 2, AR = 0, first_stage = 0
   ))
 }
 

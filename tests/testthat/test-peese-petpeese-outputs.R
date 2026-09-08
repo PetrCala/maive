@@ -6,7 +6,8 @@ run_maive <- function(data, method) {
     instrument = 1,
     studylevel = 0,
     SE = 0,
-    AR = 0
+    AR = 0,
+    first_stage = 0
   )
 }
 
