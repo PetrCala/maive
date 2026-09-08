@@ -180,3 +180,76 @@ test_that("unsupported inputs are rejected by class", {
   expect_error(maive_from_metafor(1:10), "must be an .*escalc.* data frame or an .*rma.uni")
   expect_error(maive_from_metafor(list(yi = 1, vi = 1)), "must be an")
 })
+
+test_that("trimfill fits are refused before the generic rma.uni gate", {
+  dat <- smd_escalc()
+  fit <- metafor::rma(yi, vi, data = dat)
+  tf <- metafor::trimfill(fit)
+  expect_s3_class(tf, "rma.uni.trimfill")
+  expect_true(inherits(tf, "rma.uni")) # would pass the generic gate
+
+  expect_error(maive_from_metafor(tf), "trimfill.* fits contain imputed studies")
+  expect_error(maive_from_metafor(tf), "Pass the original[[:space:]]+.*rma.* fit")
+
+  # The original fit still converts
+  expect_identical(maive_from_metafor(fit), hand_built(dat))
+})
+
+test_that("a stale ni attribute after dplyr::arrange() falls through to n1i + n2i", {
+  skip_if_not_installed("dplyr")
+  dat <- smd_escalc()
+  arranged <- dplyr::arrange(dat, yi)
+  correct <- as.numeric(arranged$n1i + arranged$n2i)
+
+  # dplyr reorders the rows but leaves the attribute in the original order
+  stale <- as.numeric(attr(arranged$yi, "ni"))
+  expect_length(stale, nrow(arranged))
+  expect_false(identical(stale, correct))
+
+  out <- maive_from_metafor(arranged)
+  expect_identical(out$Ns, correct)
+  expect_identical(out$bs, as.numeric(arranged$yi))
+
+  # rma() copies the same stale vector into fit$ni, so the rma entry point
+  # needs the same consistency check
+  fit <- metafor::rma(yi, vi, data = arranged)
+  expect_false(identical(as.numeric(fit$ni), correct))
+  expect_identical(maive_from_metafor(fit)$Ns, correct)
+})
+
+test_that("a stale ni attribute after a base reorder is caught by the consistency check", {
+  dat <- smd_escalc()
+  ord <- order(dat$yi)
+  reordered <- as.data.frame(dat)[ord, ]
+  # Simulate an attribute that did not follow the rows
+  attr(reordered$yi, "ni") <- as.numeric(dat$n1i + dat$n2i)
+  correct <- as.numeric(reordered$n1i + reordered$n2i)
+  expect_false(identical(as.numeric(attr(reordered$yi, "ni")), correct))
+
+  expect_identical(maive_from_metafor(reordered)$Ns, correct)
+
+  # A stale ni column is subject to the same rule
+  with_col <- reordered
+  with_col$ni <- as.numeric(dat$n1i + dat$n2i)
+  expect_identical(maive_from_metafor(with_col)$Ns, correct)
+})
+
+test_that("an ni column or attribute that agrees with n1i + n2i is still used", {
+  dat <- smd_escalc()
+  totals <- as.numeric(dat$n1i + dat$n2i)
+  expect_identical(maive_from_metafor(dat)$Ns, totals)
+
+  # Agreement is only required where both are present
+  partial <- as.data.frame(dat)
+  partial$n2i[3] <- NA
+  attr(partial$yi, "ni") <- totals
+  expect_identical(maive_from_metafor(partial)$Ns, totals)
+
+  # Without n1i/n2i there is nothing to check against, so the attribute wins
+  alone <- as.data.frame(dat)[, c("yi", "vi")]
+  attr(alone$yi, "ni") <- totals
+  expect_identical(maive_from_metafor(alone)$Ns, totals)
+
+  # The explicit ni argument is never second-guessed
+  expect_identical(maive_from_metafor(dat, ni = rep(7, nrow(dat)))$Ns, rep(7, nrow(dat)))
+})

@@ -143,6 +143,25 @@ test_that("validate_maive_data checks study_id degrees of freedom", {
     MAIVE:::validate_maive_data(dat),
     "Insufficient degrees of freedom.*requires at least 7 rows"
   )
+  expect_error(
+    MAIVE:::validate_maive_data(dat, studylevel = 1),
+    "Insufficient degrees of freedom.*requires at least 7 rows"
+  )
+  expect_error(
+    MAIVE:::validate_maive_data(dat, studylevel = 3),
+    "Insufficient degrees of freedom.*requires at least 7 rows"
+  )
+})
+
+test_that("the degrees-of-freedom rule only applies when study dummies are fitted", {
+  dat <- data.frame(
+    bs = 1:5,
+    sebs = rep(0.1, 5),
+    Ns = rep(100, 5),
+    study_id = c(1, 1, 2, 3, 4)
+  )
+  expect_silent(MAIVE:::validate_maive_data(dat, studylevel = 0))
+  expect_silent(MAIVE:::validate_maive_data(dat, studylevel = 2))
 })
 
 test_that("validate_maive_data passes with sufficient study_id rows", {

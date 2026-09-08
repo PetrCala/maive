@@ -11,14 +11,21 @@
 #' spurious precision that MAIVE corrects for. They are resolved, in order, from
 #' the \code{ni} argument, an \code{ni} column (or the fit's \code{ni}), the
 #' \code{ni} attribute that \code{escalc()} stamps on the effect size column,
-#' and finally the exact two-group total \code{n1i + n2i}. When none of these is
+#' and finally the exact two-group total \code{n1i + n2i}. The column and the
+#' attribute are only used when they agree with \code{n1i + n2i} wherever both
+#' are present: the attribute does not follow a reorder such as
+#' \code{dplyr::arrange()} and \code{rma()} copies it into the fit, so a stale
+#' vector of the right length falls through to the two-group total instead of
+#' binding every sample size to the wrong estimate. When none of these is
 #' available the function stops and names what it needs.
 #'
 #' For \code{rma.uni} fits the effect sizes, variances, sample sizes, and any
 #' vector supplied through \code{ni} or \code{study_id} are taken through the
 #' same \code{subset} and missing-value masks the fit applied, so the rows stay
 #' aligned. Multivariate (\code{rma.mv}), GLMM (\code{rma.glmm}), and other
-#' \code{rma} subclasses are refused rather than silently flattened.
+#' \code{rma} subclasses are refused rather than silently flattened, and so are
+#' \code{metafor::trimfill()} fits: their imputed studies would enter MAIVE
+#' as observed estimates, so pass the original \code{rma()} fit.
 #'
 #' @param x An \code{escalc} data frame (or any data frame with \code{yi} and
 #'   \code{vi} columns) or an \code{rma.uni} fit.
@@ -111,6 +118,18 @@ maive_from_escalc <- function(x, ni = NULL, study_id = NULL) {
 #' @keywords internal
 #' @noRd
 maive_from_rma <- function(x, ni = NULL, study_id = NULL) {
+  # trimfill fits inherit rma.uni, so refuse them before the generic gate: their
+  # yi/vi/ni slots hold observed plus imputed studies, and the imputed rows
+  # carry the sample size of the study they mirror, so nothing marks them
+  if (inherits(x, "rma.uni.trimfill")) {
+    cli::cli_abort(
+      c(
+        "{.fn metafor::trimfill} fits contain imputed studies and are not supported.",
+        "i" = "MAIVE must be estimated on observed estimates. Pass the original {.fn metafor::rma} fit."
+      ),
+      call. = FALSE
+    )
+  }
   if (!inherits(x, "rma.uni")) {
     cli::cli_abort(
       c(
@@ -209,17 +228,41 @@ maive_metafor_resolve_column <- function(arg, x, name, n_rows) {
 }
 
 #' Pick sample sizes from the sources metafor provides, in priority order
+#'
+#' An \code{ni} column (or the fit's \code{ni} slot) and the \code{ni}
+#' attribute on the effect sizes are only accepted when they agree with
+#' \code{n1i + n2i} wherever both are present. The attribute is a plain
+#' attribute on the column, so a reorder such as \code{dplyr::arrange()} leaves
+#' it at full length in the original order, and \code{rma()} copies the same
+#' stale vector into \code{fit$ni}; length alone cannot tell these apart.
 #' @keywords internal
 #' @noRd
 maive_metafor_sample_sizes <- function(ni_col, yi_attr, n1i, n2i, n_rows, source) {
-  if (!is.null(ni_col) && length(ni_col) == n_rows) {
+  two_group <- NULL
+  if (!is.null(n1i) && !is.null(n2i) && length(n1i) == n_rows && length(n2i) == n_rows) {
+    two_group <- as.numeric(n1i) + as.numeric(n2i)
+  }
+
+  usable <- function(candidate) {
+    if (is.null(candidate) || length(candidate) != n_rows) {
+      return(FALSE)
+    }
+    if (is.null(two_group)) {
+      return(TRUE)
+    }
+    candidate <- as.numeric(candidate)
+    both <- !is.na(candidate) & !is.na(two_group)
+    isTRUE(all.equal(candidate[both], two_group[both]))
+  }
+
+  if (usable(ni_col)) {
     return(as.numeric(ni_col))
   }
-  if (!is.null(yi_attr) && length(yi_attr) == n_rows) {
+  if (usable(yi_attr)) {
     return(as.numeric(yi_attr))
   }
-  if (!is.null(n1i) && !is.null(n2i) && length(n1i) == n_rows && length(n2i) == n_rows) {
-    return(as.numeric(n1i) + as.numeric(n2i))
+  if (!is.null(two_group)) {
+    return(two_group)
   }
   cli::cli_abort(
     c(

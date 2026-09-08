@@ -5,10 +5,14 @@
 #' scientific requirements.
 #'
 #' @param dat Data frame with required columns: bs, sebs, Ns
+#' @param studylevel Study-level option (0-3) the analysis will run with. The
+#'   degrees-of-freedom rule for study identifiers only applies when study
+#'   dummies are fitted (odd \code{studylevel}); with \code{NULL} (unknown)
+#'   the rule is applied whenever a \code{study_id} column is present.
 #' @return Cleaned data frame (invisible) with empty rows removed
 #' @keywords internal
 #' @noRd
-validate_maive_data <- function(dat) {
+validate_maive_data <- function(dat, studylevel = NULL) {
   # Data frame type check
   if (!is.data.frame(dat)) {
     cli::cli_abort("Input 'dat' must be a data frame.", call. = FALSE)
@@ -95,8 +99,12 @@ validate_maive_data <- function(dat) {
     )
   }
 
-  # Study ID degrees of freedom check
-  if ("study_id" %in% names(dat)) {
+  # Study ID degrees of freedom check. The rule protects the study dummies
+  # (one regressor per study), so it does not apply when the identifier is
+  # unused (studylevel = 0) or only drives clustering (studylevel = 2); a
+  # positionally inferred column must not abort an analysis that ignores it.
+  uses_dummies <- is.null(studylevel) || (as.integer(studylevel) %% 2L) == 1L
+  if ("study_id" %in% names(dat) && uses_dummies) {
     n_studies <- length(unique(dat$study_id))
     min_required <- n_studies + 3
     if (nrow(dat) < min_required) {
@@ -150,11 +158,19 @@ maive_drop_empty_rows <- function(dat) {
 #' Falls back to the default names (bs, sebs, Ns, study_id) when mappings are
 #' not provided. When no study_id mapping is given and no column is named
 #' study_id, the fourth column is used positionally with a warning naming the
-#' column. Performs presence, numeric, non-missing, and finite validation.
+#' column, provided it was not consumed by the estimate, se, or n mapping. When
+#' it was, the single remaining column is used instead (still with the
+#' warning); if several columns remain the caller is asked to name study_id
+#' rather than have one guessed, unless studylevel is 0 and no identifier is
+#' needed. Performs presence, numeric, non-missing, and finite validation.
 #'
+#' @param studylevel Study-level option (0-3). With 0 an ambiguous fallback is
+#'   skipped silently instead of raising an error, since the identifier is not
+#'   used. \code{NULL} (unknown) behaves like a non-zero value.
 #' @keywords internal
 #' @noRd
-resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, study_id = NULL) { # nolint: object_name_linter.
+resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, study_id = NULL, # nolint: object_name_linter.
+                                  studylevel = NULL) {
   col_for <- function(arg, default_name) {
     if (is.null(arg) || is.na(arg) || identical(arg, "")) {
       return(default_name)
@@ -196,7 +212,7 @@ resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, stu
   check_vector(Ns, n_col)
 
   # Study ID handling: use the mapped name if provided; otherwise a column named
-  # study_id; otherwise fall back to the positional 4th column with a warning.
+  # study_id; otherwise fall back to a positional column with a warning.
   if (!is.null(study_id) && !identical(study_id, "")) {
     study_col <- as.character(study_id)
     if (!study_col %in% names(dat)) {
@@ -205,18 +221,21 @@ resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, stu
     studyid <- dat[[study_col]]
   } else if ("study_id" %in% names(dat)) {
     studyid <- dat[["study_id"]]
-  } else if (ncol(dat) >= 4) {
-    fallback_col <- names(dat)[4]
-    cli::cli_warn(
-      c(
-        "No 'study_id' column found; using the fourth column ('{fallback_col}') as the study identifier.",
-        "i" = "Pass study_id = \"{fallback_col}\" to confirm, or drop the column if it is not a study identifier."
-      ),
-      call. = FALSE
-    )
-    studyid <- dat[[4]]
   } else {
-    studyid <- NULL
+    fallback_col <- maive_positional_study_column(dat, est_col, se_col, n_col, studylevel)
+    if (!is.null(fallback_col)) {
+      which_col <- if (identical(fallback_col, names(dat)[[4L]])) "the fourth column" else "the only unmapped column"
+      cli::cli_warn(
+        c(
+          "No 'study_id' column found; using {which_col} ('{fallback_col}') as the study identifier.",
+          "i" = "Pass study_id = \"{fallback_col}\" to confirm, or drop the column if it is not a study identifier."
+        ),
+        call. = FALSE
+      )
+      studyid <- dat[[fallback_col]]
+    } else {
+      studyid <- NULL
+    }
   }
 
   # Validate study_id if present
@@ -244,6 +263,44 @@ resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, stu
   }
 
   list(dat = cleaned)
+}
+
+#' Pick the positional study identifier column
+#'
+#' Keeps the documented fourth-column convention when that column is still
+#' free, that is, not consumed by the \code{estimate}, \code{se}, or \code{n}
+#' mapping. When the fourth column was consumed, the single remaining column is
+#' used because it is unambiguous. When several remain, the function refuses to
+#' guess: it aborts naming the candidates, unless \code{studylevel} is 0, in
+#' which case no identifier is needed and \code{NULL} is returned silently.
+#'
+#' @return The column name, or \code{NULL} when there is no candidate
+#' @keywords internal
+#' @noRd
+maive_positional_study_column <- function(dat, est_col, se_col, n_col, studylevel = NULL) {
+  candidates <- setdiff(names(dat), c(est_col, se_col, n_col))
+  fourth <- if (ncol(dat) >= 4L) names(dat)[[4L]] else NULL
+
+  if (!is.null(fourth) && fourth %in% candidates) {
+    return(fourth)
+  }
+  if (length(candidates) == 1L) {
+    return(candidates[[1L]])
+  }
+  if (length(candidates) == 0L) {
+    return(NULL)
+  }
+  if (!is.null(studylevel) && as.integer(studylevel) == 0L) {
+    return(NULL)
+  }
+  cli::cli_abort(
+    c(
+      "No 'study_id' column found, and the fourth column ('{fourth}') is already mapped as {.arg estimate}, {.arg se}, or {.arg n}.",
+      "i" = "Several columns could be the study identifier: {.val {candidates}}.",
+      "i" = "Pass study_id = \"<column>\" to name it, or use studylevel = 0 if the data has no study structure."
+    ),
+    call. = FALSE
+  )
 }
 
 #' Validate MAIVE Parameter Values
@@ -307,7 +364,9 @@ validate_maive_parameters <- function(method, weight, instrument, studylevel, SE
 #' @param se Optional column name to use instead of 'sebs'
 #' @param n Optional column name to use instead of 'Ns'
 #' @param study_id Optional column name for study identifiers (a column named
-#'   study_id is used when absent; otherwise the 4th column, with a warning)
+#'   study_id is used when absent; otherwise the 4th column, with a warning,
+#'   unless that column is mapped as estimate/se/n, in which case the single
+#'   remaining column is used or, when several remain, an error asks for it)
 #' @param method Method choice (1=PET, 2=PEESE, 3=PET-PEESE, 4=EK)
 #' @param weight Weighting scheme (0=equal, 1=standard, 2=adjusted, 3=study)
 #' @param instrument Variance instrumentation (0=disabled, 1=enabled)
@@ -334,16 +393,25 @@ normalize_maive_options <- function(dat,
   # Resolve custom column names first, then validate the resolved frame.
   # Completely empty rows are dropped before resolution because resolution
   # rejects missing values in the mapped columns rather than cleaning them.
-  dat <- maive_drop_empty_rows(dat)
-  resolved <- resolve_maive_columns(dat, estimate = estimate, se = se, n = n, study_id = study_id)
-  dat <- validate_maive_data(resolved$dat)
-
   scalar_int <- function(value, name) {
     if (length(value) != 1L || is.na(value)) {
       cli::cli_abort(sprintf("Parameter '%s' must be a single non-missing value.", name), call. = FALSE)
     }
     as.integer(value)
   }
+
+  # studylevel is needed before the data is resolved: it decides whether an
+  # ambiguous positional study_id fallback matters and whether the
+  # degrees-of-freedom rule for study dummies applies
+  studylevel <- scalar_int(studylevel, "studylevel")
+
+  dat <- maive_drop_empty_rows(dat)
+  resolved <- resolve_maive_columns(
+    dat,
+    estimate = estimate, se = se, n = n, study_id = study_id,
+    studylevel = studylevel
+  )
+  dat <- validate_maive_data(resolved$dat, studylevel = studylevel)
 
   normalize_first_stage <- function(first_stage) {
     if (missing(first_stage) || is.null(first_stage)) {
@@ -390,7 +458,6 @@ normalize_maive_options <- function(dat,
   method <- scalar_int(method, "method")
   weight <- scalar_int(weight, "weight")
   instrument <- scalar_int(instrument, "instrument")
-  studylevel <- scalar_int(studylevel, "studylevel")
   SE <- scalar_int(SE, "SE")
   first_stage <- normalize_first_stage(first_stage)
 
@@ -437,6 +504,15 @@ maive_prepare_data <- function(dat, studylevel) {
   if ("study_id" %in% names(dat)) {
     studyid <- dat[["study_id"]]
   } else {
+    if (studylevel > 0L) {
+      cli::cli_warn(
+        c(
+          "studylevel = {studylevel} has no effect because the data has no study identifier.",
+          "i" = "Add a 'study_id' column or pass study_id = \"<column>\" to fit study dummies or cluster by study."
+        ),
+        call. = FALSE
+      )
+    }
     studyid <- seq_len(M)
     dummy <- 0L
     cluster <- 0L

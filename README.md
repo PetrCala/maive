@@ -90,8 +90,11 @@ Other column names can be mapped with the `estimate`, `se`, `n`, and `study_id`
 arguments. A column named `study_id` is used as the study identifier wherever it
 sits. If there is no such column and no `study_id` argument, the fourth column is
 used with a warning that names it, so a moderator or year kept in column four
-does not silently drive the study dummies and clustering. With a study identifier,
-the data needs at least the number of unique studies plus three rows.
+does not silently drive the study dummies and clustering. A column already mapped
+as `estimate`, `se`, or `n` is never picked: the single remaining column is used
+instead, and when several remain an error asks for `study_id`. With study fixed
+effects (`studylevel` 1 or 3), the data needs at least the number of unique
+studies plus three rows.
 
 ### Using metafor objects
 

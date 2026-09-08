@@ -36,14 +36,21 @@ sizes are never inferred from the variances; doing so would reintroduce the
 spurious precision that MAIVE corrects for. They are resolved, in order, from
 the \code{ni} argument, an \code{ni} column (or the fit's \code{ni}), the
 \code{ni} attribute that \code{escalc()} stamps on the effect size column,
-and finally the exact two-group total \code{n1i + n2i}. When none of these is
+and finally the exact two-group total \code{n1i + n2i}. The column and the
+attribute are only used when they agree with \code{n1i + n2i} wherever both
+are present: the attribute does not follow a reorder such as
+\code{dplyr::arrange()} and \code{rma()} copies it into the fit, so a stale
+vector of the right length falls through to the two-group total instead of
+binding every sample size to the wrong estimate. When none of these is
 available the function stops and names what it needs.
 
 For \code{rma.uni} fits the effect sizes, variances, sample sizes, and any
 vector supplied through \code{ni} or \code{study_id} are taken through the
 same \code{subset} and missing-value masks the fit applied, so the rows stay
 aligned. Multivariate (\code{rma.mv}), GLMM (\code{rma.glmm}), and other
-\code{rma} subclasses are refused rather than silently flattened.
+\code{rma} subclasses are refused rather than silently flattened, and so are
+\code{metafor::trimfill()} fits: their imputed studies would enter MAIVE
+as observed estimates, so pass the original \code{rma()} fit.
 }
 \examples{
 \dontshow{if (requireNamespace("metafor", quietly = TRUE)) withAutoprint(\{ # examplesIf}

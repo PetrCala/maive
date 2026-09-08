@@ -144,3 +144,143 @@ test_that("the positional fallback still drives clustering when accepted", {
 
   expect_equal(res_fallback$SE, res_named$SE)
 })
+
+test_that("the positional fallback never picks a column mapped as estimate, se, or n", {
+  custom <- mapping_fixture()
+  # Identifier first, sample size fourth: the layout harmonised data usually has
+  lit <- data.frame(
+    study_label = custom$my_study, effect = custom$my_est, se = custom$my_se, n_obs = custom$my_n,
+    stringsAsFactors = FALSE
+  )
+  named <- data.frame(
+    bs = custom$my_est, sebs = custom$my_se, Ns = custom$my_n, study_id = custom$my_study,
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    res <- maive(
+      lit,
+      estimate = "effect", se = "se", n = "n_obs",
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+    ),
+    "using the only unmapped column \\('study_label'\\)"
+  )
+  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  expect_equal(res$beta, res_named$beta)
+  expect_equal(res$SE, res_named$SE)
+})
+
+test_that("the fourth column keeps priority when it is free", {
+  custom <- mapping_fixture()
+  wide <- data.frame(
+    year = rep(c(2001, 2002), 5), effect = custom$my_est, se = custom$my_se,
+    paper_id = custom$my_study, n_obs = custom$my_n,
+    stringsAsFactors = FALSE
+  )
+  named <- data.frame(
+    bs = custom$my_est, sebs = custom$my_se, Ns = custom$my_n, study_id = custom$my_study,
+    stringsAsFactors = FALSE
+  )
+
+  expect_warning(
+    res <- maive(
+      wide,
+      estimate = "effect", se = "se", n = "n_obs",
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+    ),
+    "using the fourth column \\('paper_id'\\)"
+  )
+  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  expect_equal(res$SE, res_named$SE)
+})
+
+test_that("an ambiguous fallback asks for study_id instead of guessing", {
+  custom <- mapping_fixture()
+  wide <- data.frame(
+    study_label = custom$my_study, effect = custom$my_est, se = custom$my_se, n_obs = custom$my_n,
+    year = rep(c(2001, 2002), 5),
+    stringsAsFactors = FALSE
+  )
+
+  expect_error(
+    maive(
+      wide,
+      estimate = "effect", se = "se", n = "n_obs",
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+    ),
+    "already mapped.*study_label.*year|Several columns.*study_label"
+  )
+  expect_error(
+    MAIVE:::resolve_maive_columns(wide, estimate = "effect", se = "se", n = "n_obs", studylevel = 2),
+    "Pass study_id"
+  )
+
+  # Naming the identifier resolves it
+  expect_no_warning(
+    maive(
+      wide,
+      estimate = "effect", se = "se", n = "n_obs", study_id = "study_label",
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+    )
+  )
+
+  # At studylevel = 0 no identifier is needed, so the ambiguity is skipped silently
+  expect_no_warning(
+    res <- maive(
+      wide,
+      estimate = "effect", se = "se", n = "n_obs",
+      method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0
+    )
+  )
+  expect_true(is.finite(res$beta))
+})
+
+test_that("a positionally inferred id does not trigger the degrees-of-freedom rule at studylevel = 0", {
+  # Six rows, one per study, with a year in column four: ran in 0.2.5, aborted since 0.2.6
+  six <- data.frame(
+    bs = c(0.50, 0.60, 0.40, 0.55, 0.45, 0.52),
+    sebs = c(0.20, 0.18, 0.25, 0.22, 0.24, 0.19),
+    Ns = c(80, 120, 95, 110, 90, 130),
+    year = c(2001, 2002, 2003, 2004, 2005, 2006)
+  )
+
+  expect_warning(
+    res <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 0, SE = 0, AR = 0),
+    "using the fourth column \\('year'\\)"
+  )
+  expect_true(is.finite(res$beta))
+
+  # Clustering alone does not fit one regressor per study either
+  expect_warning(
+    res_cluster <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 2, SE = 0, AR = 0),
+    "using the fourth column \\('year'\\)"
+  )
+  expect_true(is.finite(res_cluster$beta))
+
+  # Study dummies still need the rows
+  expect_error(
+    suppressWarnings(maive(six, method = 1, weight = 0, instrument = 0, studylevel = 1, SE = 0, AR = 0)),
+    "Insufficient degrees of freedom: 6 observations with 6 unique studies[[:space:]]+requires at least 9 rows"
+  )
+})
+
+test_that("studylevel > 0 without any study identifier warns that it has no effect", {
+  custom <- mapping_fixture()
+  three_col <- data.frame(bs = custom$my_est, sebs = custom$my_se, Ns = custom$my_n)
+
+  expect_no_warning(
+    res0 <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0)
+  )
+  for (level in 1:3) {
+    expect_warning(
+      res <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = level, SE = 0, AR = 0),
+      sprintf("studylevel = %d has no effect because the data has no study identifier", level)
+    )
+    expect_equal(res$beta, res0$beta)
+  }
+
+  expect_warning(
+    waive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0),
+    "studylevel = 2 has no effect"
+  )
+})

@@ -53,9 +53,16 @@ the specification in the published paper; pass \code{first_stage = 0} to reprodu
 \item{study_id}{Optional column name for study identifiers. When not supplied,
 a column named \code{study_id} is used if present; otherwise, if \code{dat}
 has four or more columns, the fourth column is used as the study identifier
-and a warning names the column. Any fourth column (a moderator, a year)
-would otherwise drive the study dummies and clustering at every
-\code{studylevel} other than 0, so name the column explicitly or drop it.}
+and a warning names the column. Columns already mapped through
+\code{estimate}, \code{se}, or \code{n} are never picked: when the fourth
+column is one of them, the single remaining column is used instead, and
+when several remain an error asks for \code{study_id} (at
+\code{studylevel = 0} the fallback is skipped silently, since no
+identifier is needed). Any fourth column (a moderator, a year) would
+otherwise drive the study dummies and clustering at every
+\code{studylevel} other than 0, so name the column explicitly or drop it.
+When \code{studylevel} is not 0 and no identifier can be found, a warning
+says the study-level options have no effect.}
 
 \item{seed}{Seed for the wild bootstrap when SE = 3. Use NULL to avoid setting a seed
 (results depend on the current RNG state). Default is 123 for historical reproducibility.}
