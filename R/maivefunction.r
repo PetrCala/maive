@@ -67,23 +67,7 @@ maive_compute_variance_instrumentation <- function(sebs, Ns, g, type_choice, ins
   if (instrument == 0L) {
     F_hac <- "NA"
   } else {
-    V <- clubSandwich::vcovCR(varreg1, cluster = g, type = type_choice)
-    # In rank-deficient first-stage regressions (e.g., constant Ns so 1/N is
-    # collinear with the intercept), lm() may return aliased coefficients and
-    # vcovCR() may drop them. Guard against out-of-bounds indexing and return NA
-    # for the diagnostic F-test rather than erroring.
-    beta_slope <- varreg1$coefficients[slope_index]
-    has_slope_coef <- length(varreg1$coefficients) >= slope_index &&
-      !is.na(beta_slope) && is.finite(beta_slope)
-    has_slope_vcov <- is.matrix(V) &&
-      nrow(V) >= slope_index && ncol(V) >= slope_index &&
-      !is.na(V[slope_index, slope_index]) && is.finite(V[slope_index, slope_index]) &&
-      V[slope_index, slope_index] > 0
-    if (!has_slope_coef || !has_slope_vcov) {
-      F_hac <- NA_real_
-    } else {
-      F_hac <- unname(beta_slope^2 / V[slope_index, slope_index])
-    }
+    F_hac <- maive_first_stage_f_test(varreg1, slope_index, g, type_choice)
   }
 
   list(
@@ -91,8 +75,201 @@ maive_compute_variance_instrumentation <- function(sebs, Ns, g, type_choice, ins
     instrument_for_ar = instrument_for_ar,
     sebs2fit1 = sebs2fit1,
     F_hac = F_hac,
-    first_stage_model = varreg1
+    first_stage_model = varreg1,
+    first_stage_response = if (first_stage_type == "log") log(sebs2) else sebs2,
+    first_stage_design = Xiv,
+    slope_index = slope_index
   )
+}
+
+#' Heteroskedasticity-robust F-test of the first-stage slope
+#'
+#' @param model Fitted first-stage lm object
+#' @param slope_index Position of the instrument coefficient in the model
+#' @param g Cluster variable aligned with the model rows
+#' @param type_choice CR variance type ("CR0", "CR1", "CR2")
+#' @return The F statistic, or NA when the slope or its variance is unavailable
+#' @keywords internal
+#' @noRd
+maive_first_stage_f_test <- function(model, slope_index, g, type_choice) {
+  V <- clubSandwich::vcovCR(model, cluster = g, type = type_choice)
+  # In rank-deficient first-stage regressions (e.g., constant Ns so 1/N is
+  # collinear with the intercept), lm() may return aliased coefficients and
+  # vcovCR() may drop them. Guard against out-of-bounds indexing and return NA
+  # for the diagnostic F-test rather than erroring.
+  beta_slope <- model$coefficients[slope_index]
+  has_slope_coef <- length(model$coefficients) >= slope_index &&
+    !is.na(beta_slope) && is.finite(beta_slope)
+  has_slope_vcov <- is.matrix(V) &&
+    nrow(V) >= slope_index && ncol(V) >= slope_index &&
+    !is.na(V[slope_index, slope_index]) && is.finite(V[slope_index, slope_index]) &&
+    V[slope_index, slope_index] > 0
+  if (!has_slope_coef || !has_slope_vcov) {
+    return(NA_real_)
+  }
+  unname(beta_slope^2 / V[slope_index, slope_index])
+}
+
+#' Identify estimates whose fitted first-stage variance cannot be used
+#'
+#' The levels first stage regresses the squared standard errors on 1/N by OLS,
+#' so individual fitted values can be negative even when the intercept is not.
+#' A negative fitted variance has no square root, so the estimate cannot enter
+#' any quantity built on the instrumented standard error. Such rows are
+#' excluded explicitly (rather than silently through `na.omit` in `lm()`), so
+#' that the estimate, the F-test, the Hausman comparison, the Anderson-Rubin
+#' intervals, and the bootstrap all use the same row set.
+#'
+#' @param sebs2fit1 Fitted first-stage variances, one per input row
+#' @return Logical vector, TRUE for rows whose fitted variance is positive and finite
+#' @keywords internal
+#' @noRd
+maive_usable_fitted_variance <- function(sebs2fit1) {
+  is.finite(sebs2fit1) & sebs2fit1 > 0
+}
+
+#' Subset prepared data to the rows kept after the first stage
+#'
+#' @param prepared Output of `maive_prepare_data()`
+#' @param keep Logical vector aligned with the prepared rows
+#' @return Prepared data restricted to the kept rows; the centred study dummy
+#'   matrix is rebuilt on the kept rows so a study that loses all of its
+#'   estimates does not leave an all-zero column behind
+#' @keywords internal
+#' @noRd
+maive_subset_prepared <- function(prepared, keep) {
+  dat <- prepared$dat[keep, , drop = FALSE]
+  rownames(dat) <- NULL
+  studyid <- prepared$studyid[keep]
+  list(
+    dat = dat,
+    bs = prepared$bs[keep],
+    sebs = prepared$sebs[keep],
+    Ns = prepared$Ns[keep],
+    M = sum(keep),
+    studyid = studyid,
+    dummy = prepared$dummy,
+    cluster = prepared$cluster,
+    g = prepared$g[keep],
+    D = maive_center_dummy_matrix(studyid)
+  )
+}
+
+#' Subset first-stage results to the rows kept after the first stage
+#'
+#' The fitted variances come from the first stage fitted on every row (that
+#' regression is what defines the exclusion and does not use the instrumented
+#' standard error). The F-test is recomputed on the kept rows with the same
+#' first-stage specification so that it describes the sample the reported
+#' estimate uses.
+#'
+#' @param instrumentation Output of `maive_compute_variance_instrumentation()`
+#' @param keep Logical vector aligned with the input rows
+#' @param g Cluster variable for the kept rows
+#' @param type_choice CR variance type ("CR0", "CR1", "CR2")
+#' @param instrument Integer 0/1
+#' @return First-stage results restricted to the kept rows
+#' @keywords internal
+#' @noRd
+maive_subset_instrumentation <- function(instrumentation, keep, g, type_choice, instrument) {
+  if (instrument == 0L) {
+    F_hac <- "NA"
+  } else {
+    response_kept <- instrumentation$first_stage_response[keep]
+    design_kept <- instrumentation$first_stage_design[keep, , drop = FALSE]
+    refit <- lm(response_kept ~ 0 + design_kept)
+    F_hac <- maive_first_stage_f_test(refit, instrumentation$slope_index, g, type_choice)
+  }
+  instrumentation$invNs <- instrumentation$invNs[keep]
+  instrumentation$instrument_for_ar <- instrumentation$instrument_for_ar[keep]
+  instrumentation$sebs2fit1 <- instrumentation$sebs2fit1[keep]
+  instrumentation$F_hac <- F_hac
+  instrumentation
+}
+
+#' Drop estimates with an unusable fitted variance from the analysis
+#'
+#' @param opts Validated options
+#' @param prepared Output of `maive_prepare_data()`
+#' @param instrumentation Output of `maive_compute_variance_instrumentation()`
+#' @return List with the (possibly subset) `prepared` and `instrumentation`,
+#'   plus `keep` (logical, input length), `excluded_rows` (integer positions),
+#'   and `n_excluded`
+#' @keywords internal
+#' @noRd
+maive_apply_variance_exclusion <- function(opts, prepared, instrumentation) {
+  keep <- maive_usable_fitted_variance(instrumentation$sebs2fit1)
+  uses_instrumented_se <- opts$instrument == 1L || opts$weight == 2L
+  if (!uses_instrumented_se) {
+    keep <- rep(TRUE, prepared$M)
+  }
+  keep <- unname(keep)
+  excluded_rows <- which(!keep)
+  n_excluded <- length(excluded_rows)
+  if (n_excluded == 0L) {
+    return(list(
+      prepared = prepared,
+      instrumentation = instrumentation,
+      keep = keep,
+      excluded_rows = integer(0),
+      n_excluded = 0L
+    ))
+  }
+
+  n_kept <- sum(keep)
+  stage_hint <- if (identical(opts$first_stage_type, "levels")) {
+    " Use first_stage = 1 (log first stage), which cannot fit a negative variance."
+  } else {
+    ""
+  }
+  min_rows <- 4L
+  if ("study_id" %in% names(prepared$dat)) {
+    min_rows <- max(min_rows, length(unique(prepared$studyid[keep])) + 3L)
+  }
+  if (n_kept < min_rows) {
+    cli::cli_abort(
+      paste0(
+        "The first stage fitted a non-positive variance for {n_excluded} of {prepared$M} estimates, ",
+        "leaving {n_kept} usable estimate{?s}, fewer than the {min_rows} required.",
+        stage_hint
+      ),
+      call. = FALSE
+    )
+  }
+  cli::cli_warn(
+    paste0(
+      "The first stage fitted a non-positive variance for {n_excluded} estimate{?s}; ",
+      "{?it was/they were} excluded from the analysis (n_excluded = {n_excluded}), ",
+      "which uses the remaining {n_kept} estimates.",
+      stage_hint
+    ),
+    call. = FALSE
+  )
+
+  prepared_kept <- maive_subset_prepared(prepared, keep)
+  instrumentation_kept <- maive_subset_instrumentation(
+    instrumentation, keep, prepared_kept$g, opts$type_choice, opts$instrument
+  )
+  list(
+    prepared = prepared_kept,
+    instrumentation = instrumentation_kept,
+    keep = keep,
+    excluded_rows = excluded_rows,
+    n_excluded = n_excluded
+  )
+}
+
+#' Expand a kept-row vector back to the input length
+#'
+#' @param values Numeric vector aligned with the kept rows
+#' @param keep Logical vector aligned with the input rows
+#' @return Numeric vector of input length with NA in the excluded positions
+#' @keywords internal
+#' @noRd
+maive_expand_to_input <- function(values, keep) {
+  out <- rep(NA_real_, length(keep))
+  out[keep] <- values
+  out
 }
 
 #' @keywords internal
@@ -120,15 +297,20 @@ maive_compute_weights <- function(weight, sebs, sebs2fit1, studyid = NULL) {
 #' Compute exponential-decay weights from first-stage residuals
 #'
 #' @param first_stage_model Fitted lm object from first-stage regression
+#' @param keep Optional logical vector selecting the residuals to use (rows
+#'   excluded after the first stage are dropped before scaling and normalizing)
 #' @return Exponential-decay weights normalized to mean 1
 #' @keywords internal
 #' @noRd
-maive_compute_waive_weights <- function(first_stage_model) {
+maive_compute_waive_weights <- function(first_stage_model, keep = NULL) {
   if (is.null(first_stage_model)) {
     stop("first_stage_model must be supplied for weighting.")
   }
 
   nu <- stats::residuals(first_stage_model)
+  if (!is.null(keep)) {
+    nu <- nu[keep]
+  }
   if (length(nu) == 0L) {
     stop("first_stage_model must provide residuals.")
   }
@@ -165,12 +347,17 @@ maive_compute_waive_weights <- function(first_stage_model) {
 #' @param prepared Prepared data
 #' @param instrumentation First-stage results
 #' @param w Weights for second-stage regression
+#' @param exclusion Output of `maive_apply_variance_exclusion()`; NULL keeps
+#'   every row
 #' @return List of analysis results
 #' @keywords internal
 #' @noRd
-maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
+maive_run_pipeline <- function(opts, prepared, instrumentation, w, exclusion = NULL) {
   if (!is.numeric(w) || length(w) != prepared$M) {
     stop("w must be a numeric vector aligned with the input data.")
+  }
+  if (is.null(exclusion)) {
+    exclusion <- list(keep = rep(TRUE, prepared$M), excluded_rows = integer(0), n_excluded = 0L)
   }
 
   x <- if (opts$instrument == 0L) prepared$sebs else sqrt(instrumentation$sebs2fit1)
@@ -248,6 +435,14 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
   # EK model structure (method == 4 only): "kink", "linear", or "intercept"
   ek_structure <- if (opts$method == 4L) ek$structure else NA_character_
 
+  # Report NA (never NaN) where the fitted variance has no square root. After
+  # the exclusion every retained fitted variance is positive whenever the
+  # instrumented SE is used; when it is not used, no row is excluded and the
+  # unusable positions are masked here instead.
+  se_instrumented <- unname(instrumentation$sebs2fit1)
+  se_instrumented[!maive_usable_fitted_variance(se_instrumented)] <- NA_real_
+  se_instrumented <- sqrt(se_instrumented)
+
   # Determine instrument strength category
   instrument_strength <- if (opts$instrument == 0L) {
     "not_applicable"
@@ -269,7 +464,7 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
     "SE_standard" = as.numeric(se_std$se),
     "Hausman" = hausman,
     "Chi2" = chi2,
-    "SE_instrumented" = sqrt(instrumentation$sebs2fit1),
+    "SE_instrumented" = maive_expand_to_input(se_instrumented, exclusion$keep),
     "AR_CI" = ar_ci_res$b0_CI,
     "pub bias p-value" = egger_inf$p,
     "egger_coef" = egger_inf$b,
@@ -283,8 +478,10 @@ maive_run_pipeline <- function(opts, prepared, instrumentation, w) {
     "petpeese_selected" = petpeese_selected,
     "peese_se2_coef" = peese_se2_coef,
     "peese_se2_se" = peese_se2_se,
-    "weights" = w,
-    "instrument_strength" = instrument_strength
+    "weights" = maive_expand_to_input(w, exclusion$keep),
+    "instrument_strength" = instrument_strength,
+    "n_excluded" = exclusion$n_excluded,
+    "excluded_rows" = exclusion$excluded_rows
   )
 }
 
@@ -805,6 +1002,13 @@ maive_analyze <- function(dat,
     opts$first_stage_type
   )
 
+  # Estimates whose fitted variance is not positive cannot enter anything built
+  # on the instrumented SE. Drop them explicitly, once, so every downstream
+  # statistic uses the same rows (#24).
+  exclusion <- maive_apply_variance_exclusion(opts, prepared, instrumentation)
+  prepared <- exclusion$prepared
+  instrumentation <- exclusion$instrumentation
+
   # Check for weak instruments and warn user
   if (opts$instrument == 1L && is.numeric(instrumentation$F_hac) && !is.na(instrumentation$F_hac)) {
     if (instrumentation$F_hac < 1) {
@@ -823,7 +1027,7 @@ maive_analyze <- function(dat,
   base_w <- maive_compute_weights(opts$weight, prepared$sebs, instrumentation$sebs2fit1, prepared$studyid)
 
   if (identical(weight_mode, "waive")) {
-    decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model)
+    decay_weights <- maive_compute_waive_weights(instrumentation$first_stage_model, exclusion$keep)
     if (opts$weight == 0L) {
       w <- sqrt(decay_weights)
     } else {
@@ -833,7 +1037,7 @@ maive_analyze <- function(dat,
     w <- base_w
   }
 
-  maive_run_pipeline(opts, prepared, instrumentation, w)
+  maive_run_pipeline(opts, prepared, instrumentation, w, exclusion)
 }
 
 #' R code for MAIVE
@@ -878,6 +1082,19 @@ maive_analyze <- function(dat,
 #' }
 #' Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR.
 #'
+#' The levels first stage (\code{first_stage = 0}) regresses the squared standard
+#' errors on 1/N by ordinary least squares, so an individual fitted variance can
+#' be negative even when the intercept is not. Such an estimate has no
+#' instrumented standard error and is excluded from every quantity built on it:
+#' the MAIVE-adjusted weights, the second-stage regressions (PET, PEESE,
+#' PET-PEESE, EK), the first-stage F-test, the Hausman comparison, the
+#' Anderson-Rubin intervals, and the wild bootstrap. The first stage itself is
+#' fitted on all rows; every reported statistic then uses the same remaining
+#' rows. A warning reports the number of excluded estimates, which is also
+#' returned as \code{n_excluded} with their positions in \code{excluded_rows}.
+#' The log first stage (\code{first_stage = 1}) cannot fit a negative variance,
+#' so it never excludes an estimate.
+#'
 #' @return \itemize{
 #'   \item beta: MAIVE meta-estimate
 #'   \item SE: MAIVE standard error
@@ -887,7 +1104,8 @@ maive_analyze <- function(dat,
 #'   \item SE_standard: standard error from the same conventional fit as beta_standard
 #'   \item Hausman: Hausman type test: comparison between MAIVE and standard version
 #'   \item Chi2: 5% critical value for Hausman test
-#'   \item SE_instrumented: instrumented standard errors
+#'   \item SE_instrumented: instrumented standard errors, one per input row;
+#'     NA for estimates excluded because their fitted variance was not positive
 #'   \item AR_CI: Anderson-Rubin confidence interval for weak instruments
 #'   \item pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT
 #'   \item egger_coef: Egger Coefficient (PET estimate)
@@ -902,6 +1120,13 @@ maive_analyze <- function(dat,
 #'   \item petpeese_selected: Which model (PET or PEESE) was selected when method=3 (NA otherwise)
 #'   \item peese_se2_coef: Coefficient on SE^2 when PEESE is the final model (NA otherwise)
 #'   \item peese_se2_se: Standard error of the PEESE SE^2 coefficient (NA otherwise)
+#'   \item weights: second-stage weights, one per input row; NA for excluded estimates
+#'   \item instrument_strength: "strong", "weak", "very_weak", "unknown", or
+#'     "not_applicable", from the first-stage F-test
+#'   \item n_excluded: number of estimates excluded because the first stage
+#'     fitted a non-positive variance for them (0 with the log first stage)
+#'   \item excluded_rows: positions of the excluded estimates in the input data
+#'     (after completely empty rows are dropped); integer(0) when none
 #' }
 #'
 #' @examples
