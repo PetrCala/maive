@@ -956,7 +956,7 @@ maive_analyze <- function(dat,
                           studylevel,
                           SE,
                           AR,
-                          first_stage = 0L,
+                          first_stage = 1L,
                           estimate = NULL,
                           se = NULL,
                           n = NULL,
@@ -1058,7 +1058,10 @@ maive_analyze <- function(dat,
 #' 2 CR2 (Bias-reduced estimator), 3 wild bootstrap.
 #' @param AR Anderson Rubin corrected CI for weak instruments (available for unweighted and MAIVE-adjusted weight versions of
 #' PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.
-#' @param first_stage First-stage specification for the variance model: 0 levels, 1 log.
+#' @param first_stage First-stage specification for the variance model: 1 log (default), 0 levels.
+#'   The log stage regresses log(sebs^2) on log(Ns) with a smearing retransformation, so
+#'   the fitted variance is always positive. The levels stage regresses sebs^2 on 1/Ns and is
+#'   the specification in the published paper; pass \code{first_stage = 0} to reproduce it.
 #' @param estimate Optional column name to use instead of 'bs'
 #' @param se Optional column name to use instead of 'sebs'
 #' @param n Optional column name to use instead of 'Ns'
@@ -1080,7 +1083,8 @@ maive_analyze <- function(dat,
 #'   \item Number of observations: Ns
 #'   \item Optional: study_id
 #' }
-#' Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR.
+#' Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR,
+#' log first stage.
 #'
 #' The levels first stage (\code{first_stage = 0}) regresses the squared standard
 #' errors on 1/N by ordinary least squares, so an individual fitted variance can
@@ -1138,6 +1142,12 @@ maive_analyze <- function(dat,
 #'
 #' result <- maive(dat,
 #'   method = 3, weight = 0, instrument = 1,
+#'   studylevel = 0, SE = 0, AR = 0
+#' )
+#'
+#' # first_stage = 0 uses the levels first stage from the published paper
+#' result_levels <- maive(dat,
+#'   method = 3, weight = 0, instrument = 1,
 #'   studylevel = 0, SE = 0, AR = 0, first_stage = 0
 #' )
 #'
@@ -1149,7 +1159,7 @@ maive <- function(dat,
                   studylevel,
                   SE,
                   AR,
-                  first_stage = 0L,
+                  first_stage = 1L,
                   estimate = NULL,
                   se = NULL,
                   n = NULL,
@@ -1203,7 +1213,7 @@ maive <- function(dat,
 #'
 #' result <- waive(dat,
 #'   method = 3, weight = 0, instrument = 1,
-#'   studylevel = 0, SE = 0, AR = 0, first_stage = 0
+#'   studylevel = 0, SE = 0, AR = 0
 #' )
 #'
 #' @export
@@ -1214,7 +1224,7 @@ waive <- function(dat,
                   studylevel,
                   SE,
                   AR,
-                  first_stage = 0L,
+                  first_stage = 1L,
                   estimate = NULL,
                   se = NULL,
                   n = NULL,

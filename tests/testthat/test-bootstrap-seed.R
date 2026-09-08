@@ -22,7 +22,7 @@ seed_fixture <- function() {
 run_boot <- function(dat, seed) {
   suppressWarnings(maive(
     dat,
-    method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 3, AR = 0,
+    method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 3, AR = 0, first_stage = 0,
     seed = seed
   ))
 }

@@ -12,7 +12,7 @@ waive(
   studylevel,
   SE,
   AR,
-  first_stage = 0L,
+  first_stage = 1L,
   estimate = NULL,
   se = NULL,
   n = NULL,
@@ -39,7 +39,10 @@ names can be remapped with \code{estimate}, \code{se}, \code{n}, and
 \item{AR}{Anderson Rubin corrected CI for weak instruments (available for unweighted and MAIVE-adjusted weight versions of
 PET, PEESE, PET-PEESE, not available for fixed effects): 0 no, 1 yes.}
 
-\item{first_stage}{First-stage specification for the variance model: 0 levels, 1 log.}
+\item{first_stage}{First-stage specification for the variance model: 1 log (default), 0 levels.
+The log stage regresses log(sebs^2) on log(Ns) with a smearing retransformation, so
+the fitted variance is always positive. The levels stage regresses sebs^2 on 1/Ns and is
+the specification in the published paper; pass \code{first_stage = 0} to reproduce it.}
 
 \item{estimate}{Optional column name to use instead of 'bs'}
 
@@ -87,7 +90,7 @@ dat <- data.frame(
 
 result <- waive(dat,
   method = 3, weight = 0, instrument = 1,
-  studylevel = 0, SE = 0, AR = 0, first_stage = 0
+  studylevel = 0, SE = 0, AR = 0
 )
 
 }

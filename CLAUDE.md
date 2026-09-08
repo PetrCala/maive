@@ -111,7 +111,7 @@ The `maive()` function expects a data frame with:
 - `studylevel`: 0=none, 1=fixed effects, 2=cluster (default), 3=both
 - `SE`: 0=CR0 (Huber-White), 1=CR1, 2=CR2, 3=wild bootstrap (default)
 - `AR`: 0=no, 1=yes (default) - compute Anderson-Rubin CI (only for unweighted IV)
-- `first_stage`: 0=levels (default), 1=log - first-stage functional form
+- `first_stage`: 1=log (default), 0=levels (published paper) - first-stage functional form
 
 **Note**: WAIVE is available as a standalone `waive()` function that provides a more aggressive correction for p-hacking and spurious precision by downweighting both spuriously precise estimates and outliers.
 
@@ -138,8 +138,8 @@ The AR CI computation (R/ar.r) uses adaptive grid search with performance optimi
 
 Two functional forms for instrumenting variances (sebs²):
 
-1. **Levels** (`first_stage=0`): Linear regression of sebs² on constant and 1/Ns
-2. **Log** (`first_stage=1`): Log-linear regression with smearing retransformation to handle heteroskedasticity
+1. **Log** (`first_stage=1`, default): Log-linear regression with smearing retransformation to handle heteroskedasticity; the fitted variance is always positive
+2. **Levels** (`first_stage=0`): Linear regression of sebs² on constant and 1/Ns; the specification in the published paper
 
 The levels fit can give a negative fitted variance for an individual row. `maive_apply_variance_exclusion()` drops such rows explicitly (no flooring, see #24) from the weights, the second stage, the F-test (refit on the kept rows), Hausman, AR, and the bootstrap, warns with the count, and returns it as `n_excluded`.
 

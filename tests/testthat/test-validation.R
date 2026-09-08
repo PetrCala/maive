@@ -247,7 +247,7 @@ test_that("maive runs with valid data", {
 
   result <- maive(dat,
     method = 3, weight = 1, instrument = 1,
-    studylevel = 0, SE = 0, AR = 0
+    studylevel = 0, SE = 0, AR = 0, first_stage = 0
   )
   expect_true(!is.null(result))
   expect_true(is.list(result))
@@ -258,7 +258,7 @@ test_that("maive fails with insufficient data", {
   expect_error(
     maive(dat,
       method = 3, weight = 1, instrument = 1,
-      studylevel = 0, SE = 0, AR = 0
+      studylevel = 0, SE = 0, AR = 0, first_stage = 0
     ),
     "at least 4 observations"
   )
@@ -274,7 +274,7 @@ test_that("waive runs with valid data", {
 
   result <- waive(dat,
     method = 3, weight = 0, instrument = 1,
-    studylevel = 0, SE = 0, AR = 0
+    studylevel = 0, SE = 0, AR = 0, first_stage = 0
   )
   expect_true(!is.null(result))
   expect_true(is.list(result))
@@ -285,7 +285,7 @@ test_that("waive fails with insufficient data", {
   expect_error(
     waive(dat,
       method = 3, weight = 0, instrument = 1,
-      studylevel = 0, SE = 0, AR = 0
+      studylevel = 0, SE = 0, AR = 0, first_stage = 0
     ),
     "at least 4 observations"
   )

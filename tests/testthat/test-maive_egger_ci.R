@@ -13,7 +13,8 @@ test_that("maive reports Egger bootstrap and AR intervals when eligible", {
     instrument = 1,
     studylevel = 2,
     SE = 0,
-    AR = 1
+    AR = 1,
+    first_stage = 0
   )
 
   expect_true(is.numeric(res$egger_boot_ci))
@@ -40,7 +41,8 @@ test_that("maive returns NA Egger AR interval when AR is disabled", {
     instrument = 1,
     studylevel = 2,
     SE = 0,
-    AR = 0
+    AR = 0,
+    first_stage = 0
   )
 
   expect_true(is.numeric(res$egger_boot_ci))
@@ -62,7 +64,8 @@ test_that("maive returns NA Egger AR interval when AR grid has no admissible poi
     instrument = 1,
     studylevel = 3,
     SE = 0,
-    AR = 1
+    AR = 1,
+    first_stage = 0
   ))
 
   # When AR grid has no admissible points, function returns "NA" (string)

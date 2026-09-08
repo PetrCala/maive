@@ -32,7 +32,7 @@ hand_built <- function(dat) {
 }
 
 run_maive <- function(d) {
-  suppressWarnings(maive(d, method = 3, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0))
+  suppressWarnings(maive(d, method = 3, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0, first_stage = 0))
 }
 
 test_that("a two-group SMD escalc object converts without any extra input", {
@@ -107,7 +107,7 @@ test_that("study_id can be a vector or a column name", {
 
   # The identifier then drives clustering in maive() without a warning
   expect_no_warning(
-    maive(by_name, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+    maive(by_name, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
   )
 })
 

@@ -314,7 +314,7 @@ validate_maive_parameters <- function(method, weight, instrument, studylevel, SE
 #' @param studylevel Study-level effects (0-3)
 #' @param SE Standard error treatment (0-3)
 #' @param AR Anderson-Rubin confidence interval (0=no, 1=yes)
-#' @param first_stage First-stage specification: 0/\"levels\" or 1/\"log\"
+#' @param first_stage First-stage specification: 1/\"log\" (default) or 0/\"levels\"
 #' @return List of normalized options and derived metadata
 #' @keywords internal
 #' @noRd
@@ -325,7 +325,7 @@ normalize_maive_options <- function(dat,
                                     studylevel,
                                     SE,
                                     AR,
-                                    first_stage = 0L,
+                                    first_stage = 1L,
                                     estimate = NULL,
                                     se = NULL,
                                     n = NULL,
@@ -347,7 +347,7 @@ normalize_maive_options <- function(dat,
 
   normalize_first_stage <- function(first_stage) {
     if (missing(first_stage) || is.null(first_stage)) {
-      return(0L)
+      return(1L)
     }
     if (is.character(first_stage)) {
       match_idx <- match(tolower(first_stage), c("levels", "log"))
