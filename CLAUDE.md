@@ -189,6 +189,12 @@ Two functional forms for instrumenting variances (sebs²):
 2.  **Log** (`first_stage=1`): Log-linear regression with smearing
     retransformation to handle heteroskedasticity
 
+The levels fit can give a negative fitted variance for an individual
+row. `maive_apply_variance_exclusion()` drops such rows explicitly (no
+flooring, see \#24) from the weights, the second stage, the F-test
+(refit on the kept rows), Hausman, AR, and the bootstrap, warns with the
+count, and returns it as `n_excluded`.
+
 The log specification uses Duan’s smearing estimator to retransform
 predictions back to levels.
 
@@ -203,7 +209,12 @@ Returns a named list with:
 - `F-test`: First-stage F-test (if instrumenting)
 - `AR_CI`: Anderson-Rubin confidence interval (if AR=1 and conditions
   met)
-- `SE_instrumented`: Instrumented standard errors vector
+- `SE_instrumented`: Instrumented standard errors vector (input length,
+  `NA` for excluded estimates)
+- `n_excluded`, `excluded_rows`: Estimates excluded because the levels
+  first stage fitted a non-positive variance for them; the first stage
+  is fitted on all rows, every downstream statistic uses the kept rows
+  (#24)
 - `pub bias p-value`: p-value for publication bias test based on
   instrumented FAT
 - `petpeese_selected`, `ek_structure`: model selection metadata for

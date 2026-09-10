@@ -178,7 +178,8 @@ Nature Communications, 16, 8454. https://doi.org/10.1038/s41467-025-63261-0</cod
 <strong>Levels</strong> (<code>first_stage=0</code>): Linear regression of sebs² on constant and 1/Ns</li>
 <li>
 <strong>Log</strong> (<code>first_stage=1</code>): Log-linear regression with smearing retransformation to handle heteroskedasticity</li>
-</ol><p>The log specification uses Duan’s smearing estimator to retransform predictions back to levels.</p>
+</ol><p>The levels fit can give a negative fitted variance for an individual row. <code>maive_apply_variance_exclusion()</code> drops such rows explicitly (no flooring, see #24) from the weights, the second stage, the F-test (refit on the kept rows), Hausman, AR, and the bootstrap, warns with the count, and returns it as <code>n_excluded</code>.</p>
+<p>The log specification uses Duan’s smearing estimator to retransform predictions back to levels.</p>
 </div>
 <div class="section level3">
 <h3 id="output-structure">Output Structure<a class="anchor" aria-label="anchor" href="#output-structure"></a></h3>
@@ -194,7 +195,9 @@ Nature Communications, 16, 8454. https://doi.org/10.1038/s41467-025-63261-0</cod
 <li>
 <code>AR_CI</code>: Anderson-Rubin confidence interval (if AR=1 and conditions met)</li>
 <li>
-<code>SE_instrumented</code>: Instrumented standard errors vector</li>
+<code>SE_instrumented</code>: Instrumented standard errors vector (input length, <code>NA</code> for excluded estimates)</li>
+<li>
+<code>n_excluded</code>, <code>excluded_rows</code>: Estimates excluded because the levels first stage fitted a non-positive variance for them; the first stage is fitted on all rows, every downstream statistic uses the kept rows (#24)</li>
 <li>
 <code>pub bias p-value</code>: p-value for publication bias test based on instrumented FAT</li>
 <li>

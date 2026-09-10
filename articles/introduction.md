@@ -249,7 +249,11 @@ full list):
   instruments)
 - `pub bias p-value`: p-value for the publication bias test based on the
   instrumented FAT
-- `SE_instrumented`: Vector of instrumented standard errors
+- `SE_instrumented`: Vector of instrumented standard errors, one per
+  input row (`NA` for excluded estimates)
+- `n_excluded`, `excluded_rows`: Number and positions of estimates
+  excluded because the levels first stage fitted a non-positive variance
+  for them (0 and `integer(0)` with the log first stage)
 - `petpeese_selected`: Which of PET and PEESE was selected when
   `method = 3`
 - `ek_structure`: Structure of the EK fit when `method = 4` (“kink”,
@@ -443,6 +447,16 @@ result_levels <- maive(data, method = 3, weight = 0, instrument = 1,
 
 cat("First-stage (levels) F-test:", round(result_levels$`F-test`, 3), "\n")
 ```
+
+The levels fit is an ordinary least squares regression, so an individual
+fitted variance can be negative even when the intercept is not. Such an
+estimate has no instrumented standard error and is excluded from
+everything built on it (weights, PET, PEESE, PET-PEESE, EK, the F-test,
+the Hausman comparison, the Anderson-Rubin intervals, the bootstrap), so
+every reported statistic uses the same rows. A warning reports the
+count, which is also returned as `n_excluded` with the positions in
+`excluded_rows`. The log specification below cannot fit a negative
+variance and never excludes an estimate.
 
 ### Log Specification
 

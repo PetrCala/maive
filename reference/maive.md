@@ -111,7 +111,8 @@ maive(
 
 - Chi2: 5
 
-- SE_instrumented: instrumented standard errors
+- SE_instrumented: instrumented standard errors, one per input row; NA
+  for estimates excluded because their fitted variance was not positive
 
 - AR_CI: Anderson-Rubin confidence interval for weak instruments
 
@@ -147,6 +148,18 @@ maive(
 - peese_se2_se: Standard error of the PEESE SE^2 coefficient (NA
   otherwise)
 
+- weights: second-stage weights, one per input row; NA for excluded
+  estimates
+
+- instrument_strength: "strong", "weak", "very_weak", "unknown", or
+  "not_applicable", from the first-stage F-test
+
+- n_excluded: number of estimates excluded because the first stage
+  fitted a non-positive variance for them (0 with the log first stage)
+
+- excluded_rows: positions of the excluded estimates in the input data
+  (after completely empty rows are dropped); integer(0) when none
+
 ## Details
 
 Guided, interactive workflow available at https://www.easymeta.org.
@@ -165,6 +178,20 @@ Data `dat` can be imported from an Excel file via:
 
 Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented,
 cluster SE, wild bootstrap, AR.
+
+The levels first stage (`first_stage = 0`) regresses the squared
+standard errors on 1/N by ordinary least squares, so an individual
+fitted variance can be negative even when the intercept is not. Such an
+estimate has no instrumented standard error and is excluded from every
+quantity built on it: the MAIVE-adjusted weights, the second-stage
+regressions (PET, PEESE, PET-PEESE, EK), the first-stage F-test, the
+Hausman comparison, the Anderson-Rubin intervals, and the wild
+bootstrap. The first stage itself is fitted on all rows; every reported
+statistic then uses the same remaining rows. A warning reports the
+number of excluded estimates, which is also returned as `n_excluded`
+with their positions in `excluded_rows`. The log first stage
+(`first_stage = 1`) cannot fit a negative variance, so it never excludes
+an estimate.
 
 ## Examples
 

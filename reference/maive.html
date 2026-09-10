@@ -140,7 +140,8 @@ would otherwise drive the study dummies and clustering at every
 <li><p>SE_standard: standard error from the same conventional fit as beta_standard</p></li>
 <li><p>Hausman: Hausman type test: comparison between MAIVE and standard version</p></li>
 <li><p>Chi2: 5<!-- % critical value for Hausman test --></p></li>
-<li><p>SE_instrumented: instrumented standard errors</p></li>
+<li><p>SE_instrumented: instrumented standard errors, one per input row;
+    NA for estimates excluded because their fitted variance was not positive</p></li>
 <li><p>AR_CI: Anderson-Rubin confidence interval for weak instruments</p></li>
 <li><p>pub bias p-value: p-value of test for publication bias / p-hacking based on instrumented FAT</p></li>
 <li><p>egger_coef: Egger Coefficient (PET estimate)</p></li>
@@ -155,6 +156,13 @@ would otherwise drive the study dummies and clustering at every
 <li><p>petpeese_selected: Which model (PET or PEESE) was selected when method=3 (NA otherwise)</p></li>
 <li><p>peese_se2_coef: Coefficient on SE^2 when PEESE is the final model (NA otherwise)</p></li>
 <li><p>peese_se2_se: Standard error of the PEESE SE^2 coefficient (NA otherwise)</p></li>
+<li><p>weights: second-stage weights, one per input row; NA for excluded estimates</p></li>
+<li><p>instrument_strength: "strong", "weak", "very_weak", "unknown", or
+    "not_applicable", from the first-stage F-test</p></li>
+<li><p>n_excluded: number of estimates excluded because the first stage
+    fitted a non-positive variance for them (0 with the log first stage)</p></li>
+<li><p>excluded_rows: positions of the excluded estimates in the input data
+    (after completely empty rows are dropped); integer(0) when none</p></li>
 </ul></div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
@@ -166,6 +174,18 @@ It should contain:</p><ul><li><p>Estimates: bs</p></li>
 <li><p>Number of observations: Ns</p></li>
 <li><p>Optional: study_id</p></li>
 </ul><p>Default option for MAIVE: MAIVE-PET-PEESE, unweighted, instrumented, cluster SE, wild bootstrap, AR.</p>
+<p>The levels first stage (<code>first_stage = 0</code>) regresses the squared standard
+errors on 1/N by ordinary least squares, so an individual fitted variance can
+be negative even when the intercept is not. Such an estimate has no
+instrumented standard error and is excluded from every quantity built on it:
+the MAIVE-adjusted weights, the second-stage regressions (PET, PEESE,
+PET-PEESE, EK), the first-stage F-test, the Hausman comparison, the
+Anderson-Rubin intervals, and the wild bootstrap. The first stage itself is
+fitted on all rows; every reported statistic then uses the same remaining
+rows. A warning reports the number of excluded estimates, which is also
+returned as <code>n_excluded</code> with their positions in <code>excluded_rows</code>.
+The log first stage (<code>first_stage = 1</code>) cannot fit a negative variance,
+so it never excludes an estimate.</p>
     </div>
 
     <div class="section level2">

@@ -1,6 +1,42 @@
 # Changelog
 
+## MAIVE 0.3.1
+
+*Unreleased*
+
+### Bug Fixes
+
+- The levels first stage (`first_stage = 0`) can fit a negative variance
+  for an individual estimate. Previously
+  [`sqrt()`](https://rdrr.io/r/base/MathFun.html) turned it into `NaN`,
+  [`lm()`](https://rdrr.io/r/stats/lm.html) dropped the row from PET but
+  not from PEESE, the F-test, or the Hausman comparison, so the reported
+  statistics used different samples, the AR interval came back `NA`,
+  adjusted-weight AR aborted, and EK aborted. Such estimates are now
+  excluded explicitly from everything built on the instrumented standard
+  error (weights, PET, PEESE, PET-PEESE, EK, the F-test, the Hausman
+  comparison, the Anderson-Rubin intervals, the wild bootstrap), so
+  every reported statistic uses the same rows. A warning names the count
+  and points to `first_stage = 1` (the log first stage), which cannot
+  fit a negative variance. The fitted variance is not floored: a floored
+  value would enter PET as an almost perfectly precise observation and,
+  under `weight = 2`, as a weight of order `1/eps`
+  ([\#24](https://github.com/PetrCala/MAIVE/issues/24)).
+
+### New Features
+
+- [`maive()`](https://petrcala.github.io/MAIVE/reference/maive.md) and
+  [`waive()`](https://petrcala.github.io/MAIVE/reference/waive.md)
+  return `n_excluded` (the number of excluded estimates, 0 with the log
+  first stage) and `excluded_rows` (their positions in the input after
+  empty rows are dropped). `SE_instrumented` and `weights` keep the
+  input length with `NA` (never `NaN`) in the excluded positions.
+
+------------------------------------------------------------------------
+
 ## MAIVE 0.3.0
+
+CRAN release: 2026-09-03
 
 *Released: 2026-09-03*
 

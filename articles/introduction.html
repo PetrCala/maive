@@ -345,7 +345,12 @@ weak instruments)</li>
 based on the instrumented FAT</li>
 <li>
 <code>SE_instrumented</code>: Vector of instrumented standard
-errors</li>
+errors, one per input row (<code>NA</code> for excluded estimates)</li>
+<li>
+<code>n_excluded</code>, <code>excluded_rows</code>: Number and
+positions of estimates excluded because the levels first stage fitted a
+non-positive variance for them (0 and <code>integer(0)</code> with the
+log first stage)</li>
 <li>
 <code>petpeese_selected</code>: Which of PET and PEESE was selected
 when <code>method = 3</code>
@@ -532,6 +537,15 @@ per study:</p>
 <span>                       studylevel <span class="op">=</span> <span class="fl">2</span>, SE <span class="op">=</span> <span class="fl">3</span>, AR <span class="op">=</span> <span class="fl">1</span>, first_stage <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"First-stage (levels) F-test:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result_levels</span><span class="op">$</span><span class="va">`F-test`</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+<p>The levels fit is an ordinary least squares regression, so an
+individual fitted variance can be negative even when the intercept is
+not. Such an estimate has no instrumented standard error and is excluded
+from everything built on it (weights, PET, PEESE, PET-PEESE, EK, the
+F-test, the Hausman comparison, the Anderson-Rubin intervals, the
+bootstrap), so every reported statistic uses the same rows. A warning
+reports the count, which is also returned as <code>n_excluded</code>
+with the positions in <code>excluded_rows</code>. The log specification
+below cannot fit a negative variance and never excludes an estimate.</p>
 </div>
 <div class="section level3">
 <h3 id="log-specification">Log Specification<a class="anchor" aria-label="anchor" href="#log-specification"></a>
