@@ -309,3 +309,18 @@ test_that("waive fails with insufficient data", {
     "at least 4 observations"
   )
 })
+
+test_that("a non-numeric studylevel gets the parameter message, not an internal error", {
+  dat <- data.frame(
+    bs = c(0.5, 0.6, 0.4, 0.55, 0.45, 0.52),
+    sebs = c(0.2, 0.18, 0.25, 0.22, 0.24, 0.19),
+    Ns = c(80, 120, 95, 110, 90, 130),
+    study_id = c(1, 1, 2, 2, 3, 3)
+  )
+  expect_error(
+    suppressWarnings(
+      maive(dat, method = 1, weight = 0, instrument = 1, studylevel = "abc", SE = 0, AR = 0, first_stage = 0)
+    ),
+    "Parameter 'studylevel' must be 0, 1, 2, or 3."
+  )
+})

@@ -224,7 +224,7 @@ resolve_maive_columns <- function(dat, estimate = NULL, se = NULL, n = NULL, stu
   } else {
     fallback_col <- maive_positional_study_column(dat, est_col, se_col, n_col, studylevel)
     if (!is.null(fallback_col)) {
-      which_col <- if (identical(fallback_col, names(dat)[[4L]])) "the fourth column" else "the only unmapped column"
+      which_col <- if (ncol(dat) >= 4L && identical(fallback_col, names(dat)[[4L]])) "the fourth column" else "the only unmapped column"
       cli::cli_warn(
         c(
           "No 'study_id' column found; using {which_col} ('{fallback_col}') as the study identifier.",
@@ -404,6 +404,9 @@ normalize_maive_options <- function(dat,
   # ambiguous positional study_id fallback matters and whether the
   # degrees-of-freedom rule for study dummies applies
   studylevel <- scalar_int(studylevel, "studylevel")
+  if (!studylevel %in% c(0, 1, 2, 3)) {
+    cli::cli_abort("Parameter 'studylevel' must be 0, 1, 2, or 3.", call. = FALSE)
+  }
 
   dat <- maive_drop_empty_rows(dat)
   resolved <- resolve_maive_columns(
