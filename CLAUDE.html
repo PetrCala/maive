@@ -150,7 +150,7 @@ Nature Communications, 16, 8454. https://doi.org/10.1038/s41467-025-63261-0</cod
 <li>
 <code>AR</code>: 0=no, 1=yes (default) - compute Anderson-Rubin CI (only for unweighted IV)</li>
 <li>
-<code>first_stage</code>: 0=levels (default), 1=log - first-stage functional form</li>
+<code>first_stage</code>: 1=log (default), 0=levels (published paper) - first-stage functional form</li>
 </ul><p><strong>Note</strong>: WAIVE is available as a standalone <code><a href="reference/waive.html">waive()</a></code> function that provides a more aggressive correction for p-hacking and spurious precision by downweighting both spuriously precise estimates and outliers.</p>
 </div>
 <div class="section level3">
@@ -175,9 +175,9 @@ Nature Communications, 16, 8454. https://doi.org/10.1038/s41467-025-63261-0</cod
 <h3 id="first-stage-regression">First-Stage Regression<a class="anchor" aria-label="anchor" href="#first-stage-regression"></a></h3>
 <p>Two functional forms for instrumenting variances (sebs²):</p>
 <ol style="list-style-type: decimal"><li>
-<strong>Levels</strong> (<code>first_stage=0</code>): Linear regression of sebs² on constant and 1/Ns</li>
+<strong>Log</strong> (<code>first_stage=1</code>, default): Log-linear regression with smearing retransformation to handle heteroskedasticity; the fitted variance is always positive</li>
 <li>
-<strong>Log</strong> (<code>first_stage=1</code>): Log-linear regression with smearing retransformation to handle heteroskedasticity</li>
+<strong>Levels</strong> (<code>first_stage=0</code>): Linear regression of sebs² on constant and 1/Ns; the specification in the published paper</li>
 </ol><p>The levels fit can give a negative fitted variance for an individual row. <code>maive_apply_variance_exclusion()</code> drops such rows explicitly (no flooring, see #24) from the weights, the second stage, the F-test (refit on the kept rows), Hausman, AR, and the bootstrap, warns with the count, and returns it as <code>n_excluded</code>.</p>
 <p>The log specification uses Duan’s smearing estimator to retransform predictions back to levels.</p>
 </div>

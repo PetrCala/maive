@@ -144,7 +144,8 @@ aligned. `rma.mv` and `rma.glmm` fits are refused rather than flattened.
 - Study-level correlation (fixed effects, clustering, or both)
 - Multiple SE estimators (CR0, CR1, CR2, wild bootstrap)
 - Anderson-Rubin confidence intervals for weak instruments
-- First-stage specification options (levels or log transformation)
+- First-stage specification options (log transformation by default, or
+  levels as in the published paper)
 
 ### Output
 

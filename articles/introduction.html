@@ -110,8 +110,8 @@ spurious precision:</p>
 <ol style="list-style-type: decimal">
 <li>
 <strong>First-stage regression</strong>: Instruments the potentially
-manipulated standard errors using inverse sample sizes (which
-researchers cannot easily manipulate)</li>
+manipulated standard errors using sample sizes (which researchers cannot
+easily manipulate)</li>
 <li>
 <strong>Second-stage regression</strong>: Uses the instrumented
 standard errors in meta-regression models</li>
@@ -215,7 +215,7 @@ names using:</p>
 <span><span class="co">#&gt;   bread.mlm sandwich</span></span>
 <span></span>
 <span><span class="va">result</span><span class="op">$</span><span class="va">beta</span></span>
-<span><span class="co">#&gt; [1] 0.7628903</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.7136277</span></span></code></pre></div>
 <p>Validation rules still apply: required columns must be numeric,
 non-missing, finite, and there must be at least 4 observations after
 removing completely empty rows. With a study identifier, there must be
@@ -308,15 +308,15 @@ bootstrap:</p>
 <span></span>
 <span><span class="co"># View key results</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"MAIVE Estimate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">beta</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MAIVE Estimate: 0.335</span></span>
+<span><span class="co">#&gt; MAIVE Estimate: 0.336</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"MAIVE SE:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">SE</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; MAIVE SE: 0.05</span></span>
+<span><span class="co">#&gt; MAIVE SE: 0.051</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Standard Estimate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">beta_standard</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Standard Estimate: 0.348</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Hausman Test:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">Hausman</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Hausman Test: 0.001</span></span>
+<span><span class="co">#&gt; Hausman Test: 0</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"First-stage F-test:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">`F-test`</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; First-stage F-test: 373.181</span></span></code></pre></div>
+<span><span class="co">#&gt; First-stage F-test: 546.273</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="understanding-the-output">Understanding the Output<a class="anchor" aria-label="anchor" href="#understanding-the-output"></a>
@@ -527,12 +527,27 @@ per study:</p>
 <div class="section level2">
 <h2 id="first-stage-specification">First-Stage Specification<a class="anchor" aria-label="anchor" href="#first-stage-specification"></a>
 </h2>
-<p>MAIVE allows two functional forms for the first-stage regression:</p>
+<p>MAIVE allows two functional forms for the first-stage regression. The
+log specification is the default; pass <code>first_stage = 0</code> to
+reproduce the levels specification from the published paper.</p>
 <div class="section level3">
-<h3 id="levels-default">Levels (Default)<a class="anchor" aria-label="anchor" href="#levels-default"></a>
+<h3 id="log-default">Log (Default)<a class="anchor" aria-label="anchor" href="#log-default"></a>
 </h3>
-<p>Regresses variance (sebs²) on constant and 1/Ns:</p>
+<p>Log-linear regression of log(sebs²) on log(Ns) with smearing
+retransformation. The fitted variance is always positive, so no estimate
+can drop out of the second stage:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">result_log</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maive.html">maive</a></span><span class="op">(</span><span class="va">data</span>, method <span class="op">=</span> <span class="fl">3</span>, weight <span class="op">=</span> <span class="fl">0</span>, instrument <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                    studylevel <span class="op">=</span> <span class="fl">2</span>, SE <span class="op">=</span> <span class="fl">3</span>, AR <span class="op">=</span> <span class="fl">1</span>, first_stage <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"First-stage (log) F-test:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result_log</span><span class="op">$</span><span class="va">`F-test`</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="levels-paper-specification">Levels (Paper Specification)<a class="anchor" aria-label="anchor" href="#levels-paper-specification"></a>
+</h3>
+<p>Regresses variance (sebs²) on constant and 1/Ns. This is the
+specification in Irsova et al. (2025):</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">result_levels</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maive.html">maive</a></span><span class="op">(</span><span class="va">data</span>, method <span class="op">=</span> <span class="fl">3</span>, weight <span class="op">=</span> <span class="fl">0</span>, instrument <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>                       studylevel <span class="op">=</span> <span class="fl">2</span>, SE <span class="op">=</span> <span class="fl">3</span>, AR <span class="op">=</span> <span class="fl">1</span>, first_stage <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span></span>
@@ -545,17 +560,8 @@ F-test, the Hausman comparison, the Anderson-Rubin intervals, the
 bootstrap), so every reported statistic uses the same rows. A warning
 reports the count, which is also returned as <code>n_excluded</code>
 with the positions in <code>excluded_rows</code>. The log specification
-below cannot fit a negative variance and never excludes an estimate.</p>
-</div>
-<div class="section level3">
-<h3 id="log-specification">Log Specification<a class="anchor" aria-label="anchor" href="#log-specification"></a>
-</h3>
-<p>Log-linear regression with smearing retransformation:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">result_log</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/maive.html">maive</a></span><span class="op">(</span><span class="va">data</span>, method <span class="op">=</span> <span class="fl">3</span>, weight <span class="op">=</span> <span class="fl">0</span>, instrument <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>                    studylevel <span class="op">=</span> <span class="fl">2</span>, SE <span class="op">=</span> <span class="fl">3</span>, AR <span class="op">=</span> <span class="fl">1</span>, first_stage <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"First-stage (log) F-test:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">result_log</span><span class="op">$</span><span class="va">`F-test`</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
+above, the default, cannot fit a negative variance and never excludes an
+estimate.</p>
 </div>
 </div>
 <div class="section level2">

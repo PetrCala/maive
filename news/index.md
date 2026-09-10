@@ -1,8 +1,21 @@
 # Changelog
 
-## MAIVE 0.3.1
+## MAIVE (development version)
 
-*Unreleased*
+### Changes
+
+- The log first stage is now the default: `first_stage = 1` in
+  [`maive()`](https://petrcala.github.io/MAIVE/reference/maive.md) and
+  [`waive()`](https://petrcala.github.io/MAIVE/reference/waive.md), and
+  a call that omits `first_stage` (or passes `NULL`) fits the log
+  specification. The log stage regresses log(sebs^2) on log(Ns) with a
+  smearing retransformation, so its fitted variance is always positive
+  and no estimate can drop out of the second stage; it also predicts
+  held-out variances better and degrades more gracefully when the
+  instrument is weak. It improves on the published version, and
+  estimates on existing data will move. Pass `first_stage = 0` to
+  reproduce the levels first stage from the paper (Irsova et al., 2025);
+  that specification is unchanged and stays under test.
 
 ### Bug Fixes
 

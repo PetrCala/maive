@@ -42,8 +42,8 @@ leading to biased conclusions.
 MAIVE uses **instrumental variables** to correct for spurious precision:
 
 1.  **First-stage regression**: Instruments the potentially manipulated
-    standard errors using inverse sample sizes (which researchers cannot
-    easily manipulate)
+    standard errors using sample sizes (which researchers cannot easily
+    manipulate)
 2.  **Second-stage regression**: Uses the instrumented standard errors
     in meta-regression models
 
@@ -119,7 +119,7 @@ result <- maive(
 #>   bread.mlm sandwich
 
 result$beta
-#> [1] 0.7628903
+#> [1] 0.7136277
 ```
 
 Validation rules still apply: required columns must be numeric,
@@ -220,15 +220,15 @@ result <- maive(
 
 # View key results
 cat("MAIVE Estimate:", round(result$beta, 3), "\n")
-#> MAIVE Estimate: 0.335
+#> MAIVE Estimate: 0.336
 cat("MAIVE SE:", round(result$SE, 3), "\n")
-#> MAIVE SE: 0.05
+#> MAIVE SE: 0.051
 cat("Standard Estimate:", round(result$beta_standard, 3), "\n")
 #> Standard Estimate: 0.348
 cat("Hausman Test:", round(result$Hausman, 3), "\n")
-#> Hausman Test: 0.001
+#> Hausman Test: 0
 cat("First-stage F-test:", round(result$`F-test`, 3), "\n")
-#> First-stage F-test: 373.181
+#> First-stage F-test: 546.273
 ```
 
 ### Understanding the Output
@@ -434,11 +434,28 @@ result_boot <- maive(data, method = 3, weight = 0, instrument = 1,
 
 ## First-Stage Specification
 
-MAIVE allows two functional forms for the first-stage regression:
+MAIVE allows two functional forms for the first-stage regression. The
+log specification is the default; pass `first_stage = 0` to reproduce
+the levels specification from the published paper.
 
-### Levels (Default)
+### Log (Default)
 
-Regresses variance (sebs²) on constant and 1/Ns:
+Log-linear regression of log(sebs²) on log(Ns) with smearing
+retransformation. The fitted variance is always positive, so no estimate
+can drop out of the second stage:
+
+``` r
+
+result_log <- maive(data, method = 3, weight = 0, instrument = 1,
+                    studylevel = 2, SE = 3, AR = 1, first_stage = 1)
+
+cat("First-stage (log) F-test:", round(result_log$`F-test`, 3), "\n")
+```
+
+### Levels (Paper Specification)
+
+Regresses variance (sebs²) on constant and 1/Ns. This is the
+specification in Irsova et al. (2025):
 
 ``` r
 
@@ -455,20 +472,8 @@ everything built on it (weights, PET, PEESE, PET-PEESE, EK, the F-test,
 the Hausman comparison, the Anderson-Rubin intervals, the bootstrap), so
 every reported statistic uses the same rows. A warning reports the
 count, which is also returned as `n_excluded` with the positions in
-`excluded_rows`. The log specification below cannot fit a negative
-variance and never excludes an estimate.
-
-### Log Specification
-
-Log-linear regression with smearing retransformation:
-
-``` r
-
-result_log <- maive(data, method = 3, weight = 0, instrument = 1,
-                    studylevel = 2, SE = 3, AR = 1, first_stage = 1)
-
-cat("First-stage (log) F-test:", round(result_log$`F-test`, 3), "\n")
-```
+`excluded_rows`. The log specification above, the default, cannot fit a
+negative variance and never excludes an estimate.
 
 ## WAIVE: More Aggressive Correction
 

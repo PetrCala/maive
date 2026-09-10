@@ -16,7 +16,7 @@ waive(
   studylevel,
   SE,
   AR,
-  first_stage = 0L,
+  first_stage = 1L,
   estimate = NULL,
   se = NULL,
   n = NULL,
@@ -62,7 +62,11 @@ waive(
 
 - first_stage:
 
-  First-stage specification for the variance model: 0 levels, 1 log.
+  First-stage specification for the variance model: 1 log (default), 0
+  levels. The log stage regresses log(sebs^2) on log(Ns) with a smearing
+  retransformation, so the fitted variance is always positive. The
+  levels stage regresses sebs^2 on 1/Ns and is the specification in the
+  published paper; pass `first_stage = 0` to reproduce it.
 
 - estimate:
 
@@ -124,10 +128,10 @@ dat <- data.frame(
 
 result <- waive(dat,
   method = 3, weight = 0, instrument = 1,
-  studylevel = 0, SE = 0, AR = 0, first_stage = 0
+  studylevel = 0, SE = 0, AR = 0
 )
 #> Warning: Sample size (4) is small for IV estimation. Results may be unreliable. Consider
 #> using instrument=0 for small samples.
-#> Warning: Very weak instrument detected (F-test = 0.002). Results may be unreliable.
+#> Warning: Very weak instrument detected (F-test = 0.003). Results may be unreliable.
 #> Consider using instrument=0 or checking data quality.
 ```

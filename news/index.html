@@ -37,14 +37,17 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.3.1" id="maive-031">MAIVE 0.3.1<a class="anchor" aria-label="anchor" href="#maive-031"></a></h2>
-<p><em>Unreleased</em></p>
+<h2 class="pkg-version" data-toc-text="development version" id="maive-development-version">MAIVE (development version)<a class="anchor" aria-label="anchor" href="#maive-development-version"></a></h2>
 <div class="section level3">
-<h3 id="bug-fixes-0-3-1">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-3-1"></a></h3>
+<h3 id="changes-development-version">Changes<a class="anchor" aria-label="anchor" href="#changes-development-version"></a></h3>
+<ul><li>The log first stage is now the default: <code>first_stage = 1</code> in <code><a href="../reference/maive.html">maive()</a></code> and <code><a href="../reference/waive.html">waive()</a></code>, and a call that omits <code>first_stage</code> (or passes <code>NULL</code>) fits the log specification. The log stage regresses log(sebs^2) on log(Ns) with a smearing retransformation, so its fitted variance is always positive and no estimate can drop out of the second stage; it also predicts held-out variances better and degrades more gracefully when the instrument is weak. It improves on the published version, and estimates on existing data will move. Pass <code>first_stage = 0</code> to reproduce the levels first stage from the paper (Irsova et al., 2025); that specification is unchanged and stays under test.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="bug-fixes-development-version">Bug Fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-development-version"></a></h3>
 <ul><li>The levels first stage (<code>first_stage = 0</code>) can fit a negative variance for an individual estimate. Previously <code><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt()</a></code> turned it into <code>NaN</code>, <code><a href="https://rdrr.io/r/stats/lm.html" class="external-link">lm()</a></code> dropped the row from PET but not from PEESE, the F-test, or the Hausman comparison, so the reported statistics used different samples, the AR interval came back <code>NA</code>, adjusted-weight AR aborted, and EK aborted. Such estimates are now excluded explicitly from everything built on the instrumented standard error (weights, PET, PEESE, PET-PEESE, EK, the F-test, the Hausman comparison, the Anderson-Rubin intervals, the wild bootstrap), so every reported statistic uses the same rows. A warning names the count and points to <code>first_stage = 1</code> (the log first stage), which cannot fit a negative variance. The fitted variance is not floored: a floored value would enter PET as an almost perfectly precise observation and, under <code>weight = 2</code>, as a weight of order <code>1/eps</code> (<a href="https://github.com/PetrCala/MAIVE/issues/24" class="external-link">#24</a>).</li>
 </ul></div>
 <div class="section level3">
-<h3 id="new-features-0-3-1">New Features<a class="anchor" aria-label="anchor" href="#new-features-0-3-1"></a></h3>
+<h3 id="new-features-development-version">New Features<a class="anchor" aria-label="anchor" href="#new-features-development-version"></a></h3>
 <ul><li>
 <code><a href="../reference/maive.html">maive()</a></code> and <code><a href="../reference/waive.html">waive()</a></code> return <code>n_excluded</code> (the number of excluded estimates, 0 with the log first stage) and <code>excluded_rows</code> (their positions in the input after empty rows are dropped). <code>SE_instrumented</code> and <code>weights</code> keep the input length with <code>NA</code> (never <code>NaN</code>) in the excluded positions.</li>
 </ul><hr></div>
