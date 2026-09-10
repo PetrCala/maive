@@ -161,11 +161,11 @@ test_that("the positional fallback never picks a column mapped as estimate, se, 
     res <- maive(
       lit,
       estimate = "effect", se = "se", n = "n_obs",
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
     ),
     "using the only unmapped column \\('study_label'\\)"
   )
-  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
   expect_equal(res$beta, res_named$beta)
   expect_equal(res$SE, res_named$SE)
 })
@@ -186,11 +186,11 @@ test_that("the fourth column keeps priority when it is free", {
     res <- maive(
       wide,
       estimate = "effect", se = "se", n = "n_obs",
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
     ),
     "using the fourth column \\('paper_id'\\)"
   )
-  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0)
+  res_named <- maive(named, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0)
   expect_equal(res$SE, res_named$SE)
 })
 
@@ -206,7 +206,7 @@ test_that("an ambiguous fallback asks for study_id instead of guessing", {
     maive(
       wide,
       estimate = "effect", se = "se", n = "n_obs",
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
     ),
     "already mapped.*study_label.*year|Several columns.*study_label"
   )
@@ -220,7 +220,7 @@ test_that("an ambiguous fallback asks for study_id instead of guessing", {
     maive(
       wide,
       estimate = "effect", se = "se", n = "n_obs", study_id = "study_label",
-      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0
     )
   )
 
@@ -229,7 +229,7 @@ test_that("an ambiguous fallback asks for study_id instead of guessing", {
     res <- maive(
       wide,
       estimate = "effect", se = "se", n = "n_obs",
-      method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0
+      method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0, first_stage = 0
     )
   )
   expect_true(is.finite(res$beta))
@@ -245,21 +245,21 @@ test_that("a positionally inferred id does not trigger the degrees-of-freedom ru
   )
 
   expect_warning(
-    res <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 0, SE = 0, AR = 0),
+    res <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 0, SE = 0, AR = 0, first_stage = 0),
     "using the fourth column \\('year'\\)"
   )
   expect_true(is.finite(res$beta))
 
   # Clustering alone does not fit one regressor per study either
   expect_warning(
-    res_cluster <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 2, SE = 0, AR = 0),
+    res_cluster <- maive(six, method = 1, weight = 0, instrument = 0, studylevel = 2, SE = 0, AR = 0, first_stage = 0),
     "using the fourth column \\('year'\\)"
   )
   expect_true(is.finite(res_cluster$beta))
 
   # Study dummies still need the rows
   expect_error(
-    suppressWarnings(maive(six, method = 1, weight = 0, instrument = 0, studylevel = 1, SE = 0, AR = 0)),
+    suppressWarnings(maive(six, method = 1, weight = 0, instrument = 0, studylevel = 1, SE = 0, AR = 0, first_stage = 0)),
     "Insufficient degrees of freedom: 6 observations with 6 unique studies[[:space:]]+requires at least 9 rows"
   )
 })
@@ -269,18 +269,18 @@ test_that("studylevel > 0 without any study identifier warns that it has no effe
   three_col <- data.frame(bs = custom$my_est, sebs = custom$my_se, Ns = custom$my_n)
 
   expect_no_warning(
-    res0 <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0)
+    res0 <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 0, SE = 0, AR = 0, first_stage = 0)
   )
   for (level in 1:3) {
     expect_warning(
-      res <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = level, SE = 0, AR = 0),
+      res <- maive(three_col, method = 1, weight = 0, instrument = 1, studylevel = level, SE = 0, AR = 0, first_stage = 0),
       sprintf("studylevel = %d has no effect because the data has no study identifier", level)
     )
     expect_equal(res$beta, res0$beta)
   }
 
   expect_warning(
-    waive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0),
+    waive(three_col, method = 1, weight = 0, instrument = 1, studylevel = 2, SE = 0, AR = 0, first_stage = 0),
     "studylevel = 2 has no effect"
   )
 })
