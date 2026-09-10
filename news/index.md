@@ -35,6 +35,43 @@
   value would enter PET as an almost perfectly precise observation and,
   under `weight = 2`, as a weight of order `1/eps`
   ([\#24](https://github.com/PetrCala/MAIVE/issues/24)).
+- [`maive_from_metafor()`](https://petrcala.github.io/MAIVE/reference/maive_from_metafor.md)
+  refuses
+  [`metafor::trimfill()`](https://wviechtb.github.io/metafor/reference/trimfill.html)
+  fits (class `rma.uni.trimfill`). They inherit `rma.uni`, so the
+  imputed studies previously entered MAIVE as observed estimates, each
+  carrying the sample size of the study it mirrors. Pass the original
+  `rma()` fit ([\#23](https://github.com/PetrCala/MAIVE/issues/23)).
+- [`maive_from_metafor()`](https://petrcala.github.io/MAIVE/reference/maive_from_metafor.md)
+  no longer trusts an `ni` column, the fit’s `ni` slot, or the `ni`
+  attribute on the effect sizes on length alone. Each is used only when
+  it agrees with `n1i + n2i` wherever both are present; otherwise it
+  falls through to the two-group total. The attribute does not follow a
+  reorder such as
+  [`dplyr::arrange()`](https://dplyr.tidyverse.org/reference/arrange.html),
+  and `rma()` copies the stale vector into the fit, so both entry points
+  previously bound every sample size to the wrong estimate
+  ([\#23](https://github.com/PetrCala/MAIVE/issues/23)).
+- The positional `study_id` fallback never picks a column already mapped
+  through `estimate`, `se`, or `n`. The fourth column is still used when
+  it is free; when it is mapped, the single remaining column is used
+  instead (the warning then says “the only unmapped column”), and when
+  several remain an error names the candidates and asks for `study_id`.
+  At `studylevel = 0` the ambiguous case is skipped silently, since no
+  identifier is needed
+  ([\#23](https://github.com/PetrCala/MAIVE/issues/23)).
+- The degrees-of-freedom rule (at least the number of unique studies
+  plus three rows) now applies only when study dummies are fitted
+  (`studylevel` 1 or 3). A positionally inferred identifier such as a
+  `year` column no longer aborts an analysis at `studylevel = 0` or `2`
+  that never uses it as a fixed effect
+  ([\#23](https://github.com/PetrCala/MAIVE/issues/23)).
+- When `studylevel` is 1, 2, or 3 and the data has no study identifier,
+  [`maive()`](https://petrcala.github.io/MAIVE/reference/maive.md) and
+  [`waive()`](https://petrcala.github.io/MAIVE/reference/waive.md) warn
+  once that the study-level options have no effect instead of silently
+  running as `studylevel = 0`
+  ([\#23](https://github.com/PetrCala/MAIVE/issues/23)).
 
 ### New Features
 

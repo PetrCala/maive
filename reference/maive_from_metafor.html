@@ -90,13 +90,20 @@ sizes are never inferred from the variances; doing so would reintroduce the
 spurious precision that MAIVE corrects for. They are resolved, in order, from
 the <code>ni</code> argument, an <code>ni</code> column (or the fit's <code>ni</code>), the
 <code>ni</code> attribute that <code>escalc()</code> stamps on the effect size column,
-and finally the exact two-group total <code>n1i + n2i</code>. When none of these is
+and finally the exact two-group total <code>n1i + n2i</code>. The column and the
+attribute are only used when they agree with <code>n1i + n2i</code> wherever both
+are present: the attribute does not follow a reorder such as
+<code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">dplyr::arrange()</a></code> and <code>rma()</code> copies it into the fit, so a stale
+vector of the right length falls through to the two-group total instead of
+binding every sample size to the wrong estimate. When none of these is
 available the function stops and names what it needs.</p>
 <p>For <code>rma.uni</code> fits the effect sizes, variances, sample sizes, and any
 vector supplied through <code>ni</code> or <code>study_id</code> are taken through the
 same <code>subset</code> and missing-value masks the fit applied, so the rows stay
 aligned. Multivariate (<code>rma.mv</code>), GLMM (<code>rma.glmm</code>), and other
-<code>rma</code> subclasses are refused rather than silently flattened.</p>
+<code>rma</code> subclasses are refused rather than silently flattened, and so are
+<code><a href="https://wviechtb.github.io/metafor/reference/trimfill.html" class="external-link">metafor::trimfill()</a></code> fits: their imputed studies would enter MAIVE
+as observed estimates, so pass the original <code>rma()</code> fit.</p>
     </div>
 
     <div class="section level2">

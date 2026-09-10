@@ -165,7 +165,7 @@ by Zuzana Irsova, Pedro R. D. Bom, Tomas Havranek, and Heiko Rachinger</p>
 </tr>
 </tbody>
 </table>
-<p>Other column names can be mapped with the <code>estimate</code>, <code>se</code>, <code>n</code>, and <code>study_id</code> arguments. A column named <code>study_id</code> is used as the study identifier wherever it sits. If there is no such column and no <code>study_id</code> argument, the fourth column is used with a warning that names it, so a moderator or year kept in column four does not silently drive the study dummies and clustering. With a study identifier, the data needs at least the number of unique studies plus three rows.</p>
+<p>Other column names can be mapped with the <code>estimate</code>, <code>se</code>, <code>n</code>, and <code>study_id</code> arguments. A column named <code>study_id</code> is used as the study identifier wherever it sits. If there is no such column and no <code>study_id</code> argument, the fourth column is used with a warning that names it, so a moderator or year kept in column four does not silently drive the study dummies and clustering. A column already mapped as <code>estimate</code>, <code>se</code>, or <code>n</code> is never picked: the single remaining column is used instead, and when several remain an error asks for <code>study_id</code>. With study fixed effects (<code>studylevel</code> 1 or 3), the data needs at least the number of unique studies plus three rows.</p>
 <div class="section level3">
 <h3 id="using-metafor-objects">Using metafor objects<a class="anchor" aria-label="anchor" href="#using-metafor-objects"></a>
 </h3>

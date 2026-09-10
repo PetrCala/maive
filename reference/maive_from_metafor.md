@@ -46,14 +46,23 @@ sizes are never inferred from the variances; doing so would reintroduce
 the spurious precision that MAIVE corrects for. They are resolved, in
 order, from the `ni` argument, an `ni` column (or the fit's `ni`), the
 `ni` attribute that `escalc()` stamps on the effect size column, and
-finally the exact two-group total `n1i + n2i`. When none of these is
-available the function stops and names what it needs.
+finally the exact two-group total `n1i + n2i`. The column and the
+attribute are only used when they agree with `n1i + n2i` wherever both
+are present: the attribute does not follow a reorder such as
+[`dplyr::arrange()`](https://dplyr.tidyverse.org/reference/arrange.html)
+and `rma()` copies it into the fit, so a stale vector of the right
+length falls through to the two-group total instead of binding every
+sample size to the wrong estimate. When none of these is available the
+function stops and names what it needs.
 
 For `rma.uni` fits the effect sizes, variances, sample sizes, and any
 vector supplied through `ni` or `study_id` are taken through the same
 `subset` and missing-value masks the fit applied, so the rows stay
 aligned. Multivariate (`rma.mv`), GLMM (`rma.glmm`), and other `rma`
-subclasses are refused rather than silently flattened.
+subclasses are refused rather than silently flattened, and so are
+[`metafor::trimfill()`](https://wviechtb.github.io/metafor/reference/trimfill.html)
+fits: their imputed studies would enter MAIVE as observed estimates, so
+pass the original `rma()` fit.
 
 ## Examples
 

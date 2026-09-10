@@ -84,10 +84,16 @@ maive(
   Optional column name for study identifiers. When not supplied, a
   column named `study_id` is used if present; otherwise, if `dat` has
   four or more columns, the fourth column is used as the study
-  identifier and a warning names the column. Any fourth column (a
-  moderator, a year) would otherwise drive the study dummies and
-  clustering at every `studylevel` other than 0, so name the column
-  explicitly or drop it.
+  identifier and a warning names the column. Columns already mapped
+  through `estimate`, `se`, or `n` are never picked: when the fourth
+  column is one of them, the single remaining column is used instead,
+  and when several remain an error asks for `study_id` (at
+  `studylevel = 0` the fallback is skipped silently, since no identifier
+  is needed). Any fourth column (a moderator, a year) would otherwise
+  drive the study dummies and clustering at every `studylevel` other
+  than 0, so name the column explicitly or drop it. When `studylevel` is
+  not 0 and no identifier can be found, a warning says the study-level
+  options have no effect.
 
 - seed:
 

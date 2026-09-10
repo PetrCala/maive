@@ -218,28 +218,40 @@ names using:</p>
 <span><span class="co">#&gt; [1] 0.7136277</span></span></code></pre></div>
 <p>Validation rules still apply: required columns must be numeric,
 non-missing, finite, and there must be at least 4 observations after
-removing completely empty rows. With a study identifier, there must be
-at least as many rows as unique studies plus three (the fixture above
-has 12 rows for 4 studies).</p>
+removing completely empty rows. With study fixed effects
+(<code>studylevel</code> 1 or 3), there must be at least as many rows as
+unique studies plus three (the fixture above has 12 rows for 4
+studies).</p>
 <p><strong>Study identifier fallback:</strong> when
 <code>study_id</code> is not supplied, a column named
 <code>study_id</code> is used wherever it sits. If there is no such
 column and the data frame has four or more columns, the fourth column is
-used as the study identifier and a warning names it. If column four is a
-moderator or a year rather than a study identifier, drop it or name the
-correct column explicitly, because the identifier drives the study
-dummies and clustering at every <code>studylevel</code> other than
-0.</p>
+used as the study identifier and a warning names it. A column already
+mapped as <code>estimate</code>, <code>se</code>, or <code>n</code> is
+never picked: when column four is one of them, the single remaining
+column is used, and when several remain an error asks for
+<code>study_id</code> (at <code>studylevel = 0</code> the fallback is
+skipped, since no identifier is needed). If column four is a moderator
+or a year rather than a study identifier, drop it or name the correct
+column explicitly, because the identifier drives the study dummies and
+clustering at every <code>studylevel</code> other than 0. When
+<code>studylevel</code> is not 0 and there is no identifier at all, a
+warning says the study-level options have no effect.</p>
 <p><strong>Coming from metafor:</strong> if your effect sizes are
 already in a <code><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">metafor::escalc()</a></code> data frame or an
 <code>rma()</code> fit, <code><a href="../reference/maive_from_metafor.html">maive_from_metafor()</a></code> builds this
 data frame for you. It uses <code>sqrt(vi)</code> as the standard error
 and takes the sample sizes from the object (<code>ni</code>, the
 <code>ni</code> attribute that <code>escalc()</code> records, or
-<code>n1i + n2i</code>), never inferring them from the variance. Rows of
+<code>n1i + n2i</code>), never inferring them from the variance. The
+<code>ni</code> column and attribute are only used when they agree with
+<code>n1i + n2i</code> wherever both are present, because the attribute
+does not follow a reorder such as <code><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">dplyr::arrange()</a></code>. Rows of
 an <code>rma.uni</code> fit pass through the fit’s <code>subset</code>
 and missing-value masks, so a <code>study_id</code> vector for the
-original data stays aligned.</p>
+original data stays aligned. <code><a href="https://wviechtb.github.io/metafor/reference/trimfill.html" class="external-link">metafor::trimfill()</a></code> fits are
+refused: their imputed studies would enter MAIVE as observed estimates,
+so pass the original <code>rma()</code> fit.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">smd</span> <span class="op">&lt;-</span> <span class="fu">metafor</span><span class="fu">::</span><span class="fu"><a href="https://wviechtb.github.io/metafor/reference/escalc.html" class="external-link">escalc</a></span><span class="op">(</span></span>
 <span>  measure <span class="op">=</span> <span class="st">"SMD"</span>,</span>
