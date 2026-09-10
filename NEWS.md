@@ -1,4 +1,6 @@
-# MAIVE (development version)
+# MAIVE 0.4.0
+
+*Released: 2026-09-10*
 
 ## Changes
 
