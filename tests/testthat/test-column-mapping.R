@@ -284,3 +284,19 @@ test_that("studylevel > 0 without any study identifier warns that it has no effe
     "studylevel = 2 has no effect"
   )
 })
+
+test_that("a three-column frame with one column mapped twice reaches the fallback message", {
+  custom <- mapping_fixture()
+  three_col <- data.frame(bs = custom$my_est, sebs = custom$my_se, Ns = custom$my_n)
+
+  # se and n both point at sebs, so Ns is the only unmapped column; the frame
+  # has no fourth column to compare against
+  expect_warning(
+    maive(
+      three_col,
+      n = "sebs",
+      method = 1, weight = 0, instrument = 0, studylevel = 2, SE = 0, AR = 0, first_stage = 0
+    ),
+    "using the only unmapped column \\('Ns'\\)"
+  )
+})
