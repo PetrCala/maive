@@ -303,3 +303,31 @@ test_that("too few usable estimates abort with a pointer to the log first stage"
     "first_stage = 1"
   )
 })
+
+test_that("the study minimum after an exclusion applies only when dummies are fitted", {
+  dat <- negative_variance_fixture()
+
+  # One study per estimate: no study dummies, so the exclusion must not
+  # demand unique studies plus three rows.
+  dat$study_id <- seq_len(nrow(dat))
+  for (level in c(0, 2)) {
+    args <- default_args
+    args$studylevel <- level
+    result <- expect_no_error(do.call(run_maive, c(list(dat), args)))
+    expect_identical(result$n_excluded, 1L)
+    expect_true(is.finite(result$beta))
+  }
+
+  # 17 studies on 20 rows passes the dummies rule before the exclusion; the
+  # excluded estimate shares its study, so 19 rows remain for 17 studies.
+  dat$study_id <- c(1, 1, 1, 1, 2:17)
+  args <- default_args
+  args$studylevel <- 1
+  expect_error(
+    run_quietly(do.call(maive, c(list(dat), args))),
+    "fewer than the 20 required"
+  )
+  args$studylevel <- 2
+  result <- expect_no_error(do.call(run_maive, c(list(dat), args)))
+  expect_identical(result$n_excluded, 1L)
+})

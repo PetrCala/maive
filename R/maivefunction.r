@@ -222,8 +222,11 @@ maive_apply_variance_exclusion <- function(opts, prepared, instrumentation) {
   } else {
     ""
   }
+  # Same rule as validate_maive_data(): the unique-studies-plus-three minimum
+  # protects the study dummies, so it applies only when they are fitted.
   min_rows <- 4L
-  if ("study_id" %in% names(prepared$dat)) {
+  uses_dummies <- (as.integer(opts$studylevel) %% 2L) == 1L
+  if ("study_id" %in% names(prepared$dat) && uses_dummies) {
     min_rows <- max(min_rows, length(unique(prepared$studyid[keep])) + 3L)
   }
   if (n_kept < min_rows) {

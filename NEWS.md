@@ -1,3 +1,12 @@
+# MAIVE (development version)
+
+## Bug Fixes
+
+* After the levels first stage excludes estimates, the minimum row count no longer demands the number of unique studies plus three unless study dummies are fitted (`studylevel` 1 or 3). With one estimate per study and `studylevel` 0 or 2, a single exclusion previously aborted an analysis that runs without the `study_id` column (#24, #23).
+
+---
+
+
 # MAIVE 0.4.0
 
 *Released: 2026-09-10*
